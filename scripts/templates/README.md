@@ -2,7 +2,5 @@
 
 | File | Purpose |
 |------|---------|
-| `email-template.html` | Lease notification email |
-| `email-template-apu-coaches.html` | APU coaches notification |
-| `email-template-apu-finalist.html` | APU finalists notification |
+| `email-template.html` | Generic lease notification email |
 | `sample-users.csv` | Example CSV for bulk user creation |
