@@ -1,0 +1,350 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AI/ML & Generative AI Sandbox Blueprint v2.0
+  Sets up a complete sandbox environment for AWS AI/ML and GenAI workshops.
+  Covers: Amazon Bedrock, SageMaker Studio, Comprehend, Rekognition, Textract,
+  Transcribe, Translate, Polly, Lex, Kendra, OpenSearch, and more.
+  Based on AWS Workshop Catalog prerequisites for Generative AI on AWS.
+
+# ─── Parameters ──────────────────────────────────────────────────────────────
+Parameters:
+  UserProfileName:
+    Type: String
+    Default: sandbox-user
+    Description: SageMaker Studio user profile name
+
+  DomainName:
+    Type: String
+    Default: aiml-sandbox-domain
+    Description: SageMaker Studio domain name
+
+# ─── Resources ───────────────────────────────────────────────────────────────
+Resources:
+
+  # ── S3 Buckets ──────────────────────────────────────────────────────────────
+
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aiml-data-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldData
+            Status: Enabled
+            ExpirationInDays: 7
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  ModelArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'aiml-models-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ── IAM Roles ───────────────────────────────────────────────────────────────
+
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SageMakerSandboxRole-${AWS::Region}'
+      Description: SageMaker execution role with full AI/ML service access for sandbox
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - sagemaker.amazonaws.com
+                - bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # SageMaker
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+        # Bedrock
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+        # AI Services
+        - arn:aws:iam::aws:policy/ComprehendFullAccess
+        - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
+        - arn:aws:iam::aws:policy/AmazonTextractFullAccess
+        - arn:aws:iam::aws:policy/AmazonTranscribeFullAccess
+        - arn:aws:iam::aws:policy/TranslateFullAccess
+        - arn:aws:iam::aws:policy/AmazonPollyFullAccess
+        - arn:aws:iam::aws:policy/AmazonLexFullAccess
+        # Storage & Data
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
+        # Compute & Containers
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
+        # Logging & Monitoring
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AWSXRayFullAccess
+        # Secrets
+        - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+      Policies:
+        - PolicyName: SandboxAdditionalPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Pass role to services
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/SageMakerSandboxRole-${AWS::Region}'
+              # KMS for encryption
+              - Effect: Allow
+                Action:
+                  - kms:CreateKey
+                  - kms:DescribeKey
+                  - kms:EnableKeyRotation
+                  - kms:GenerateDataKey
+                  - kms:Decrypt
+                  - kms:Encrypt
+                Resource: '*'
+              # Lambda for Bedrock agents
+              - Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:UpdateFunctionCode
+                  - lambda:InvokeFunction
+                  - lambda:GetFunction
+                  - lambda:DeleteFunction
+                  - lambda:AddPermission
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
+              # Bedrock model access
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:CreateKnowledgeBase
+                  - bedrock:GetKnowledgeBase
+                  - bedrock:ListKnowledgeBases
+                  - bedrock:CreateDataSource
+                  - bedrock:StartIngestionJob
+                  - bedrock:CreateAgent
+                  - bedrock:GetAgent
+                  - bedrock:InvokeAgent
+                  - bedrock:ListAgents
+                Resource: '*'
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ── SageMaker Studio Domain ──────────────────────────────────────────────────
+
+  SageMakerStudioDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      DomainName: !Ref DomainName
+      AuthMode: IAM
+      DefaultUserSettings:
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+        JupyterServerAppSettings:
+          DefaultResourceSpec:
+            InstanceType: system
+        KernelGatewayAppSettings:
+          DefaultResourceSpec:
+            InstanceType: ml.t3.medium
+      VpcId: !Ref SandboxVPC
+      SubnetIds:
+        - !Ref SandboxSubnet
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  SageMakerUserProfile:
+    Type: AWS::SageMaker::UserProfile
+    Properties:
+      DomainId: !Ref SageMakerStudioDomain
+      UserProfileName: !Ref UserProfileName
+      UserSettings:
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ── Networking (minimal VPC for SageMaker Studio) ───────────────────────────
+
+  SandboxVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: aiml-sandbox-vpc
+        - Key: Blueprint
+          Value: AiMlSandbox
+
+  SandboxSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SandboxVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: aiml-sandbox-subnet
+        - Key: Blueprint
+          Value: AiMlSandbox
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: aiml-sandbox-igw
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SandboxVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SandboxVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SandboxSubnet
+      RouteTableId: !Ref RouteTable
+
+  # ── DynamoDB for Bedrock Agents ──────────────────────────────────────────────
+
+  AgentMemoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'aiml-agent-memory-${AWS::AccountId}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Blueprint
+          Value: AiMlSandbox
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ── SSM Parameters: Workshop Info ───────────────────────────────────────────
+
+  WorkshopInfoParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /aiml-sandbox/workshop-info
+      Type: String
+      Value: !Sub |
+        {
+          "blueprintName": "AI/ML & GenAI Sandbox",
+          "version": "2.0.0",
+          "accountId": "${AWS::AccountId}",
+          "region": "${AWS::Region}",
+          "dataBucket": "${DataBucket}",
+          "modelsBucket": "${ModelArtifactsBucket}",
+          "sageMakerRole": "${SageMakerExecutionRole.Arn}",
+          "studioDomainId": "${SageMakerStudioDomain}",
+          "services": [
+            "Amazon Bedrock",
+            "Amazon SageMaker Studio",
+            "Amazon Comprehend",
+            "Amazon Rekognition",
+            "Amazon Textract",
+            "Amazon Transcribe",
+            "Amazon Translate",
+            "Amazon Polly",
+            "Amazon Lex",
+            "Amazon OpenSearch"
+          ]
+        }
+      Description: AI/ML Sandbox blueprint deployment information
+      Tags:
+        Blueprint: AiMlSandbox
+        ManagedBy: InnovationSandbox
+
+# ─── Outputs ─────────────────────────────────────────────────────────────────
+Outputs:
+  SageMakerStudioDomainId:
+    Description: SageMaker Studio Domain ID
+    Value: !Ref SageMakerStudioDomain
+
+  SageMakerStudioUrl:
+    Description: SageMaker Studio URL
+    Value: !Sub 'https://${SageMakerStudioDomain}.studio.${AWS::Region}.sagemaker.aws'
+
+  SageMakerExecutionRoleArn:
+    Description: SageMaker execution role ARN (use this for all AI/ML services)
+    Value: !GetAtt SageMakerExecutionRole.Arn
+
+  DataBucketName:
+    Description: S3 bucket for workshop data
+    Value: !Ref DataBucket
+
+  ModelArtifactsBucketName:
+    Description: S3 bucket for model artifacts
+    Value: !Ref ModelArtifactsBucket
+
+  AgentMemoryTableName:
+    Description: DynamoDB table for Bedrock agent memory
+    Value: !Ref AgentMemoryTable
+
+  Region:
+    Description: Deployment region
+    Value: !Ref AWS::Region

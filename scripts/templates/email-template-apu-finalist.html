@@ -1,0 +1,124 @@
+<html>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#232f3e;padding:24px;text-align:center;">
+    <h1 style="color:#ff9900;margin:0;">AWS Sandbox</h1>
+    <p style="color:#ccc;margin:8px 0 0;">{{EVENT_NAME}}</p>
+  </div>
+  <div style="padding:32px;">
+    <p>Hi <strong>{{FIRST_NAME}}</strong>,</p>
+    <p>Congratulations on making it to the <strong>{{EVENT_NAME}}</strong>! Your dedicated AWS Sandbox account is now ready for you to build and deploy your competition project.</p>
+
+    <!-- Access Details -->
+    <table style="width:100%;border-collapse:collapse;background:#f8f9fa;border-radius:8px;overflow:hidden;margin:20px 0;">
+      <tr style="background:#232f3e;">
+        <td colspan="2" style="padding:12px 16px;color:#ff9900;font-weight:bold;">Your Sandbox Details</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;width:40%;">Sandbox Portal</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><a href="{{ISB_PORTAL}}" style="color:#0073bb;">{{ISB_PORTAL}}</a></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;">Username</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><code style="background:#eee;padding:2px 6px;border-radius:3px;">{{EMAIL}}</code></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;">AWS Account ID</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><code style="background:#eee;padding:2px 6px;border-radius:3px;">{{ACCOUNT_ID}}</code></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;">Lease Template</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><strong>{{LEASE_TEMPLATE_NAME}}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;">Duration</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><strong>{{DURATION_DAYS}} days</strong> ({{DURATION}} hours)</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;border-bottom:1px solid #eee;">Budget</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #eee;"><strong>${{MAX_SPEND}} USD</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;color:#666;">Auto-Approved</td>
+        <td style="padding:10px 16px;">{{APPROVED_BY}}</td>
+      </tr>
+    </table>
+
+    <!-- First Login -->
+    <div style="background:#e3f2fd;padding:20px;border-radius:8px;border-left:4px solid #1976d2;margin:20px 0;">
+      <p style="margin:0 0 10px;font-weight:bold;color:#1565c0;">&#128273; First Time Login</p>
+      <ol style="margin:0;padding-left:20px;line-height:2;">
+        <li>Go to <strong>Sandbox Portal</strong>: <a href="{{ISB_PORTAL}}" style="color:#0073bb;">{{ISB_PORTAL}}</a></li>
+        <li>Sign in with your email: <strong>{{EMAIL}}</strong></li>
+        <li>You will receive a <strong>verification code</strong> in your inbox — enter it to verify your identity</li>
+        <li>After verification, you will be prompted to <strong>set your password</strong></li>
+        <li>Once logged in, click <strong>Login to Account</strong> on your active lease</li>
+        <li>You will be redirected to the <strong>AWS Console</strong></li>
+      </ol>
+    </div>
+
+    <!-- What You Can Do -->
+    <div style="background:#e8f5e9;padding:20px;border-radius:8px;margin:20px 0;">
+      <p style="margin:0 0 10px;font-weight:bold;">&#127381; Your Sandbox — Full Admin Access</p>
+      <p style="margin:0 0 8px;">You have <strong>full administrator access</strong> to build your competition project:</p>
+      <ul style="margin:8px 0 0;padding-left:20px;line-height:1.8;">
+        <li><strong>Amazon Bedrock</strong> — Foundation models (Claude, Llama, Titan, Nova, Mistral)</li>
+        <li><strong>Amazon SageMaker</strong> — ML notebooks, training, and endpoints</li>
+        <li><strong>AWS Lambda</strong> — Serverless compute for your application</li>
+        <li><strong>Amazon S3</strong> — Object storage for data and assets</li>
+        <li><strong>Amazon DynamoDB</strong> — NoSQL database</li>
+        <li><strong>Amazon API Gateway</strong> — REST/HTTP APIs</li>
+        <li>And all other AWS services available in your region</li>
+      </ul>
+    </div>
+
+    <!-- Budget & Duration Limits -->
+    <div style="background:#fff3e0;padding:16px;border-radius:8px;border-left:4px solid #ff9800;margin:20px 0;">
+      <p style="margin:0 0 8px;font-weight:bold;color:#e65100;">&#128176; Budget & Duration Limits</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        <tr>
+          <td style="padding:6px 0;color:#555;width:50%;"><strong>Budget:</strong> ${{MAX_SPEND}} USD total</td>
+          <td style="padding:6px 0;color:#555;"><strong>Duration:</strong> {{DURATION_DAYS}} days ({{DURATION}} hours)</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#555;">&#9888;&#65039; Alert at ${{BUDGET_ALERT_USD}} spent</td>
+          <td style="padding:6px 0;color:#555;">&#9888;&#65039; Alert at {{DURATION_ALERT_HOURS}}h remaining</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#c62828;">&#10060; Freeze at ${{BUDGET_FREEZE_USD}} spent</td>
+          <td style="padding:6px 0;color:#c62828;">&#10060; Freeze at {{DURATION_FREEZE_HOURS}}h remaining</td>
+        </tr>
+      </table>
+      <p style="margin:10px 0 0;color:#555;font-size:13px;">When frozen, your account will be temporarily locked. Contact us if you need an extension.</p>
+    </div>
+
+    <!-- Important -->
+    <div style="background:#ffebee;padding:16px;border-radius:8px;border-left:4px solid #e53935;margin:20px 0;">
+      <p style="margin:0 0 8px;font-weight:bold;color:#c62828;">&#9888;&#65039; Important Reminders</p>
+      <ul style="margin:0;padding-left:20px;color:#555;line-height:1.8;">
+        <li>Your sandbox is <strong>exclusively for the {{EVENT_NAME}}</strong></li>
+        <li>All resources are <strong>permanently deleted</strong> after your lease expires</li>
+        <li><strong>Save your work</strong> — download code, models, and outputs regularly</li>
+        <li>Do not store sensitive personal data in the sandbox</li>
+        <li>Do not attempt to modify account limits or security settings</li>
+      </ul>
+    </div>
+
+    <!-- Tips -->
+    <div style="background:#f3e5f5;padding:16px;border-radius:8px;border-left:4px solid #7b1fa2;margin:20px 0;">
+      <p style="margin:0 0 8px;font-weight:bold;color:#4a148c;">&#128161; Tips for the Competition</p>
+      <ul style="margin:0;padding-left:20px;color:#555;line-height:1.8;">
+        <li>Use <strong>Amazon Bedrock</strong> in <code>us-east-1</code> for the widest model selection</li>
+        <li>Keep your architecture <strong>serverless</strong> to minimize costs (Lambda + API Gateway + DynamoDB)</li>
+        <li>Monitor your spending in the Sandbox Portal dashboard</li>
+        <li>Use <strong>version control</strong> (Git) — don't rely solely on the sandbox for code storage</li>
+      </ul>
+    </div>
+
+    <p>Need help? Contact <a href="mailto:{{SUPPORT_EMAIL}}" style="color:#0073bb;">{{SUPPORT_EMAIL}}</a></p>
+    <p>Good luck with the competition! &#127942;</p>
+  </div>
+  <div style="background:#232f3e;padding:16px;text-align:center;">
+    <p style="color:#888;margin:0;font-size:12px;">Elite Academy | {{EVENT_NAME}} — AWS Sandbox</p>
+  </div>
+</body>
+</html>

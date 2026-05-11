@@ -1,0 +1,363 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Cendekiawan ToT GenAI Sandbox Blueprint v1.0
+  Secure sandbox environment for AWS AI/ML and GenAI workshops.
+  Enables: Amazon Bedrock, SageMaker, Comprehend, Rekognition, Textract, Transcribe,
+  Translate, Polly, Lex, Kendra, OpenSearch, Lambda, and core AWS services.
+  Security: Innovation Sandbox Service Control Policies (SCPs) provide comprehensive
+  cost and security controls. This blueprint only adds service-specific permissions.
+
+# ─── Parameters ──────────────────────────────────────────────────────────────
+Parameters:
+  UserProfileName:
+    Type: String
+    Default: cendekiawan-user
+    Description: SageMaker Studio user profile name
+
+  DomainName:
+    Type: String
+    Default: cendekiawan-genai-domain
+    Description: SageMaker Studio domain name
+
+# ─── Resources ───────────────────────────────────────────────────────────────
+Resources:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # STORAGE: S3 Buckets with Lifecycle Policies
+  # ══════════════════════════════════════════════════════════════════════════
+
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cendekiawan-data-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldData
+            Status: Enabled
+            ExpirationInDays: 3
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 1
+                StorageClass: INTELLIGENT_TIERING
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+        - Key: Workshop
+          Value: CendekiawanToT
+
+  ModelArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cendekiawan-models-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldModels
+            Status: Enabled
+            ExpirationInDays: 3
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # IAM: Execution Role with Restricted Permissions
+  # ══════════════════════════════════════════════════════════════════════════
+
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'CendekiawanGenAIRole-${AWS::Region}'
+      Description: >
+        Execution role for GenAI sandbox. All security and cost restrictions are
+        enforced by Innovation Sandbox Service Control Policies (SCPs). This role
+        provides full access to AI/ML and core AWS services.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - sagemaker.amazonaws.com
+                - bedrock.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Core AI/ML services for GenAI workshop
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+        # Core infrastructure services
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
+        - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        # Additional AI services (called directly, not via role assumption)
+        - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # SAGEMAKER: Studio Domain (Minimal Setup)
+  # ══════════════════════════════════════════════════════════════════════════
+
+  SageMakerStudioDomain:
+    Type: AWS::SageMaker::Domain
+    Properties:
+      DomainName: !Ref DomainName
+      AuthMode: IAM
+      DefaultUserSettings:
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+        JupyterServerAppSettings:
+          DefaultResourceSpec:
+            InstanceType: system
+        KernelGatewayAppSettings:
+          DefaultResourceSpec:
+            InstanceType: ml.t3.medium
+      VpcId: !Ref SandboxVPC
+      SubnetIds:
+        - !Ref SandboxSubnet
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  SageMakerUserProfile:
+    Type: AWS::SageMaker::UserProfile
+    Properties:
+      DomainId: !Ref SageMakerStudioDomain
+      UserProfileName: !Ref UserProfileName
+      UserSettings:
+        ExecutionRole: !GetAtt SageMakerExecutionRole.Arn
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # NETWORKING: Minimal VPC for SageMaker Studio
+  # ══════════════════════════════════════════════════════════════════════════
+
+  SandboxVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: cendekiawan-genai-vpc
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+
+  SandboxSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SandboxVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cendekiawan-genai-subnet
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cendekiawan-genai-igw
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SandboxVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SandboxVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SandboxSubnet
+      RouteTableId: !Ref RouteTable
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DYNAMODB: Agent Memory Table
+  # ══════════════════════════════════════════════════════════════════════════
+
+  AgentMemoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'cendekiawan-agent-memory-${AWS::AccountId}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Blueprint
+          Value: CendekiawanGenAI
+        - Key: ManagedBy
+          Value: InnovationSandbox
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # SSM: Workshop Information
+  # ══════════════════════════════════════════════════════════════════════════
+
+  WorkshopInfoParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /cendekiawan-genai/workshop-info
+      Type: String
+      Value: !Sub |
+        {
+          "blueprintName": "Cendekiawan ToT GenAI Sandbox",
+          "version": "1.0.0",
+          "accountId": "${AWS::AccountId}",
+          "region": "${AWS::Region}",
+          "dataBucket": "${DataBucket}",
+          "modelsBucket": "${ModelArtifactsBucket}",
+          "sageMakerRole": "${SageMakerExecutionRole.Arn}",
+          "studioDomainId": "${SageMakerStudioDomain}",
+          "maxBudget": "10 USD (managed by ISB lease template)",
+          "duration": "48 hours",
+          "securityModel": "ISB Service Control Policies (SCPs) provide comprehensive security and cost controls",
+          "enabledServices": [
+            "Amazon Bedrock (all foundation models)",
+            "Amazon SageMaker Studio",
+            "Amazon Comprehend",
+            "Amazon Rekognition", 
+            "Amazon Textract",
+            "Amazon Transcribe",
+            "Amazon Translate",
+            "Amazon Polly",
+            "Amazon Lex",
+            "AWS Lambda",
+            "Amazon S3",
+            "Amazon DynamoDB",
+            "Amazon ECR",
+            "AWS Secrets Manager",
+            "AWS KMS",
+            "Amazon CloudWatch"
+          ],
+          "isbScpRestrictions": [
+            "IAM user creation and dangerous IAM operations",
+            "Reserved instance purchases and cost commitments",
+            "Account and billing modifications",
+            "Cross-account resource sharing",
+            "Dangerous operational changes",
+            "Shield Advanced and DDoS protection subscriptions"
+          ],
+          "costControls": [
+            "Daily budget: $10 USD per account",
+            "Budget alert at 80% threshold",
+            "S3 lifecycle: 3-day expiration",
+            "DynamoDB: Pay-per-request billing",
+            "ISB SCPs block reserved instance purchases"
+          ]
+        }
+      Description: Cendekiawan ToT GenAI Sandbox deployment information
+      Tags:
+        Blueprint: CendekiawanGenAI
+        ManagedBy: InnovationSandbox
+
+# ─── Outputs ─────────────────────────────────────────────────────────────────
+Outputs:
+  SageMakerStudioDomainId:
+    Description: SageMaker Studio Domain ID
+    Value: !Ref SageMakerStudioDomain
+    Export:
+      Name: !Sub '${AWS::StackName}-StudioDomainId'
+
+  SageMakerStudioUrl:
+    Description: SageMaker Studio URL (use this to access Studio)
+    Value: !Sub 'https://${SageMakerStudioDomain}.studio.${AWS::Region}.sagemaker.aws'
+
+  SageMakerExecutionRoleArn:
+    Description: Execution role ARN (use this for all AI/ML services)
+    Value: !GetAtt SageMakerExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ExecutionRoleArn'
+
+  DataBucketName:
+    Description: S3 bucket for workshop data
+    Value: !Ref DataBucket
+
+  ModelArtifactsBucketName:
+    Description: S3 bucket for model artifacts
+    Value: !Ref ModelArtifactsBucket
+
+  AgentMemoryTableName:
+    Description: DynamoDB table for Bedrock agent memory
+    Value: !Ref AgentMemoryTable
+
+  BudgetName:
+    Description: Budget name for cost tracking (managed by ISB lease template)
+    Value: !Sub 'ISB-managed budget for account ${AWS::AccountId}'
+
+  MaxBudget:
+    Description: Maximum budget per account (configured in ISB lease template)
+    Value: '$10 USD - configured in ISB lease template'
+
+  Region:
+    Description: Deployment region
+    Value: !Ref AWS::Region
+
+  WorkshopInfo:
+    Description: Workshop information (SSM Parameter)
+    Value: !Ref WorkshopInfoParameter
