@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAllExceptIsbRoles",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution",
+            "arn:aws:iam::*:role/bedrockcall-role-*"
+          ]
+        }
+      }
+    }
+  ]
+}

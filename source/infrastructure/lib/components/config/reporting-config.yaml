@@ -1,5 +1,12 @@
 # cost report group controls for leases
 #   costReportGroup        - The list of valid cost report groups that can be used
 #   requireCostReportGroup - Flag that determines whether or not cost report group is required when creating/updating lease templates
-costReportGroups: []
+costReportGroups:
+  - cendekiawan
+  - cendekiawan-apu
+  - cendekiawan-apu-tot
+  - cendekiawan-apu-finalist
+  - cendekiawan-mmu
+  - cendekiawan-mmu-coaches
+  - cendekiawan-mmu-finalist
 requireCostReportGroup: false

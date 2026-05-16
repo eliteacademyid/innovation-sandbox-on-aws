@@ -20,7 +20,7 @@ import urllib.request
 import urllib.error
 
 # Configuration
-API_ENDPOINT = "https://sp1yg0dss7.execute-api.ap-southeast-3.amazonaws.com/prod"
+API_ENDPOINT = "https://dd3kj1ggdvsy3.cloudfront.net/api"
 
 
 def assign_lease(

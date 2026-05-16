@@ -4,8 +4,12 @@
     {
       "Sid": "AllowAllServices",
       "Effect": "Allow",
-      "Action": ["*"],
-      "Resource": ["*"]
+      "Action": [
+        "*"
+      ],
+      "Resource": [
+        "*"
+      ]
     }
   ]
 }

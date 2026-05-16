@@ -36,3 +36,12 @@ scratch/
 
 .idea
 .env.production
+
+# Bulk operation results (temp output)
+bulk-assign-results-*.json
+
+# PII data files (team member emails, coach data)
+scripts/user-management/apu-finalist-teams.csv
+scripts/user-management/cendekiawan-mmu-coaches*.csv
+scripts/user-management/cendekiawan-mmu-coaches*.json
+scripts/user-management/config-mmu-coaches.json

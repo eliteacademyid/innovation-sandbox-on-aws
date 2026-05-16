@@ -87,10 +87,10 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r email firstName lastName role com
     else
         # Check if user already exists
         if aws identitystore list-users \
-            --identity-store-id "d-c8671c93a3" \
+            --identity-store-id "d-9667a833b5" \
             --filters "AttributePath=UserName,AttributeValue=$email" \
             --profile eta-andrian \
-            --region ap-southeast-3 \
+            --region ap-southeast-1 \
             --output json 2>/dev/null | grep -q "$email"; then
             echo "   ℹ️  User already exists, will assign lease"
             CREATED_COUNT=$((CREATED_COUNT + 1))

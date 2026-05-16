@@ -11,7 +11,6 @@
         "account:PutAlternateContact",
         "account:DeleteAlternateContact",
         "aws-portal:ModifyAccount",
-        "aws-portal:ViewAccount",
         "organizations:*",
         "iam:CreateAccountAlias",
         "iam:DeleteAccountAlias",
@@ -21,12 +20,14 @@
         "iam:CreateOpenIDConnectProvider",
         "iam:DeleteOpenIDConnectProvider"
       ],
-      "Resource": ["*"],
+      "Resource": [
+        "*"
+      ],
       "Condition": {
         "ArnNotLike": {
           "aws:PrincipalARN": [
-            "arn:aws:iam::*:role/InnovationSandbox-${namespace}*",
-            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_${namespace}_IsbAdmins*",
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
             "arn:aws:iam::*:role/stacksets-exec-*",
             "arn:aws:iam::*:role/AWSControlTowerExecution"
           ]
@@ -34,13 +35,12 @@
       }
     },
     {
-      "Sid": "DenyBillingAndCostManagement",
+      "Sid": "DenyBillingModification",
       "Effect": "Deny",
       "Action": [
         "aws-portal:ModifyBilling",
         "aws-portal:ModifyPaymentMethods",
-        "aws-portal:ViewBilling",
-        "aws-portal:ViewPaymentMethods",
+        "aws-portal:ModifyAccount",
         "budgets:ModifyBudget",
         "budgets:DeleteBudget",
         "ce:CreateAnomalyMonitor",
@@ -53,12 +53,14 @@
         "cur:DeleteReportDefinition",
         "purchase-orders:*"
       ],
-      "Resource": ["*"],
+      "Resource": [
+        "*"
+      ],
       "Condition": {
         "ArnNotLike": {
           "aws:PrincipalARN": [
-            "arn:aws:iam::*:role/InnovationSandbox-${namespace}*",
-            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_${namespace}_IsbAdmins*",
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
             "arn:aws:iam::*:role/stacksets-exec-*",
             "arn:aws:iam::*:role/AWSControlTowerExecution"
           ]
@@ -91,12 +93,14 @@
         "route53domains:RenewDomain",
         "route53domains:TransferDomain"
       ],
-      "Resource": ["*"],
+      "Resource": [
+        "*"
+      ],
       "Condition": {
         "ArnNotLike": {
           "aws:PrincipalARN": [
-            "arn:aws:iam::*:role/InnovationSandbox-${namespace}*",
-            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_${namespace}_IsbAdmins*",
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
             "arn:aws:iam::*:role/stacksets-exec-*",
             "arn:aws:iam::*:role/AWSControlTowerExecution"
           ]

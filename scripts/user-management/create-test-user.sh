@@ -7,16 +7,16 @@
 set -e
 
 # Configuration from deployment
-IDENTITY_STORE_ID="d-c8671c93a3"
-SSO_INSTANCE_ARN="arn:aws:sso:::instance/ssoins-666616fcfb74eec7"
-APPLICATION_ARN="arn:aws:sso::862099794180:application/ssoins-666616fcfb74eec7/apl-66664d3a4fcad754"
-PROFILE="elite-academy"
-REGION="ap-southeast-3"
+IDENTITY_STORE_ID="d-9667a833b5"
+SSO_INSTANCE_ARN="arn:aws:sso:::instance/ssoins-821055714a3e49c5"
+APPLICATION_ARN="arn:aws:sso::862099794180:application/ssoins-821055714a3e49c5/apl-82102dfcd1639f5f"
+PROFILE="eta-andrian"
+REGION="ap-southeast-1"
 
 # Group IDs
-ADMIN_GROUP_ID="41490da6-b0d1-705a-bcf8-41a1478c6ea7"
-MANAGER_GROUP_ID="31992d76-1001-7028-631c-bd3034732ddb"
-USER_GROUP_ID="81098d36-e041-703d-e15b-90337bb290a1"
+ADMIN_GROUP_ID="593a45cc-d001-70d9-8c1f-d79934ec213b"
+MANAGER_GROUP_ID="291a956c-40b1-70a9-2f9a-49a8867644e2"
+USER_GROUP_ID="892ac5bc-b031-70aa-f100-e8476c794662"
 
 # Parse arguments
 EMAIL=$1

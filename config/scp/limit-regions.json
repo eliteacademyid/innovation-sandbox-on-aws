@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyRegionAccess",
+      "Effect": "Deny",
+      "NotAction": [
+        "bedrock:*",
+        "aws-marketplace:*",
+        "support:*",
+        "iam:*",
+        "sts:*",
+        "organizations:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "us-east-1",
+            "ap-southeast-3",
+            "ap-southeast-1",
+            "ap-southeast-5"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      }
+    }
+  ]
+}

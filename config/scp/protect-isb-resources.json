@@ -1,0 +1,100 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      },
+      "Action": "*",
+      "Resource": [
+        "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+        "arn:aws:iam::*:role/AWSReservedSSO*",
+        "arn:aws:*:*:*:*Isb-myisb*",
+        "arn:aws:iam::*:role/stacksets-exec-*",
+        "arn:aws:iam::*:saml-provider/*AWSSSO*"
+      ],
+      "Effect": "Deny",
+      "Sid": "ProtectIsbControlPlaneResources"
+    },
+    {
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/AWSControlTowerExecution",
+            "arn:aws:iam::*:role/stacksets-exec-*"
+          ]
+        }
+      },
+      "Action": "*",
+      "Resource": [
+        "arn:aws:cloudtrail:*:*:trail/aws-controltower-*",
+        "arn:aws:events:*:*:rule/aws-controltower-*",
+        "arn:aws:events:*:*:rule/*AWSControlTower*",
+        "arn:aws:lambda:*:*:function:aws-controltower-*",
+        "arn:aws:logs:*:*:log-group:*aws-controltower*",
+        "arn:aws:sns:*:*:aws-controltower-*",
+        "arn:aws:iam::*:role/aws-controltower-*",
+        "arn:aws:iam::*:role/*AWSControlTower*"
+      ],
+      "Effect": "Deny",
+      "Sid": "ProtectControlTowerResources"
+    },
+    {
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": "arn:aws:iam::*:role/AWSControlTowerExecution"
+        }
+      },
+      "Action": [
+        "config:DeleteConfigurationRecorder",
+        "config:DeleteDeliveryChannel",
+        "config:DeleteRetentionConfiguration",
+        "config:PutConfigurationRecorder",
+        "config:PutDeliveryChannel",
+        "config:PutRetentionConfiguration",
+        "config:StopConfigurationRecorder"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Sid": "DenyConfigActions"
+    },
+    {
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/aws-control-tower": "managed-by-control-tower"
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": "arn:aws:iam::*:role/AWSControlTowerExecution"
+        }
+      },
+      "Action": "config:*",
+      "Resource": "*",
+      "Effect": "Deny",
+      "Sid": "ProtectControlTowerTaggedConfigResources"
+    },
+    {
+      "Condition": {
+        "ForAnyValue:StringEquals": {
+          "aws:TagKeys": "aws-control-tower"
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": "arn:aws:iam::*:role/AWSControlTowerExecution"
+        }
+      },
+      "Action": [
+        "config:TagResource",
+        "config:UntagResource"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Sid": "DenyControlTowerConfigTagActions"
+    }
+  ]
+}
