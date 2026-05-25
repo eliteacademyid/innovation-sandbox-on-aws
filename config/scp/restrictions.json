@@ -106,6 +106,31 @@
           ]
         }
       }
+    },
+    {
+      "Sid": "DenyExpensiveBedrockModels",
+      "Effect": "Deny",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:Converse",
+        "bedrock:ConverseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-*",
+        "arn:aws:bedrock:*:*:inference-profile/*opus*",
+        "arn:aws:bedrock:*:*:inference-profile/global.anthropic.claude-opus*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      }
     }
   ]
 }
