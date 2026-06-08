@@ -112,16 +112,116 @@
       "Effect": "Deny",
       "Action": [
         "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream",
-        "bedrock:Converse",
-        "bedrock:ConverseStream"
+        "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
-        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus-*",
-        "arn:aws:bedrock:*:*:inference-profile/*opus*",
-        "arn:aws:bedrock:*:*:inference-profile/global.anthropic.claude-opus*"
+        "arn:aws:bedrock:*::foundation-model/anthropic.claude-opus*",
+        "arn:aws:bedrock:*:*:inference-profile/*opus*"
       ],
       "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyLargeEC2Instances",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:instance/*"
+      ],
+      "Condition": {
+        "ForAnyValue:StringNotLike": {
+          "ec2:InstanceType": [
+            "t2.*",
+            "t3.*",
+            "t3a.*",
+            "t4g.*",
+            "*.micro",
+            "*.small",
+            "*.medium",
+            "*.large",
+            "*.xlarge"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyExpensiveSageMaker",
+      "Effect": "Deny",
+      "Action": [
+        "sagemaker:CreateTrainingJob",
+        "sagemaker:CreateEndpoint",
+        "sagemaker:CreateNotebookInstance",
+        "sagemaker:CreateEndpointConfig"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "ForAnyValue:StringLike": {
+          "sagemaker:InstanceTypes": [
+            "ml.p*",
+            "ml.g*",
+            "ml.inf*",
+            "ml.trn*",
+            "ml.m5.4xlarge",
+            "ml.m5.8xlarge",
+            "ml.m5.12xlarge",
+            "ml.m5.24xlarge",
+            "ml.c5.4xlarge",
+            "ml.c5.9xlarge",
+            "ml.c5.18xlarge"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/InnovationSandbox-myisb*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_myisb_IsbAdmins*",
+            "arn:aws:iam::*:role/stacksets-exec-*",
+            "arn:aws:iam::*:role/AWSControlTowerExecution"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyExpensiveRDS",
+      "Effect": "Deny",
+      "Action": [
+        "rds:CreateDBInstance",
+        "rds:CreateDBCluster"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "ForAnyValue:StringNotLike": {
+          "rds:DatabaseClass": [
+            "db.t3.*",
+            "db.t4g.*",
+            "db.r5.large",
+            "db.r5.xlarge",
+            "db.r6g.large",
+            "db.r6g.xlarge",
+            "db.serverless"
+          ]
+        },
         "ArnNotLike": {
           "aws:PrincipalARN": [
             "arn:aws:iam::*:role/InnovationSandbox-myisb*",

@@ -97,6 +97,7 @@ add_to_group() {
         --identity-store-id "$IDENTITY_STORE_ID" \
         --group-id "$1" --member-id "{\"UserId\":\"$2\"}" \
         --profile "$PROFILE" --region "$REGION" \
+        --cli-read-timeout 10 \
         --output json > /dev/null 2>&1 || true
 }
 
@@ -105,6 +106,7 @@ assign_to_saml_app() {
         --application-arn "$APPLICATION_ARN" \
         --principal-id "$1" --principal-type USER \
         --profile "$PROFILE" --region "$REGION" \
+        --cli-read-timeout 10 \
         --output json > /dev/null 2>&1 || true
 }
 
@@ -190,7 +192,7 @@ MEMBER_COUNT=$(tail -n +2 "$CSV_FILE" | wc -l | xargs)
 echo "╔══════════════════════════════════════════════════════════════════╗"
 echo "║  Full University Onboarding                                    ║"
 echo "╠══════════════════════════════════════════════════════════════════╣"
-echo "║  University:      ${UNI_CODE^^}"
+echo "║  University:      $(echo $UNI_CODE | tr a-z A-Z)"
 echo "║  Teams:           $TEAM_COUNT"
 echo "║  Members:         $MEMBER_COUNT"
 echo "║  Lease Template:  $LEASE_TEMPLATE_UUID"
@@ -235,7 +237,7 @@ while IFS=',' read -r team_name email first_name last_name; do
         fi
     fi
     add_to_group "$ISB_USERS_GROUP_ID" "$USER_ID"
-    sleep 0.3
+    sleep 2
 done < <(tail -n +2 "$CSV_FILE")
 
 echo ""
@@ -269,7 +271,7 @@ while IFS=',' read -r team_name; do
     LEADER_EMAIL=$(tail -n +2 "$CSV_FILE" | grep "^${team_name}," | head -1 | cut -d',' -f2 | xargs)
     if [ -z "$LEADER_EMAIL" ]; then continue; fi
 
-    COMMENT="CendekiAwan ${UNI_CODE^^} Finalist - Team ${team_name}"
+    COMMENT="CendekiAwan $(echo $UNI_CODE | tr a-z A-Z) Finalist - Team ${team_name}"
     echo "  Assigning lease to $LEADER_EMAIL ($team_name)..."
 
     RESPONSE=$(assign_lease "$LEADER_EMAIL" "$COMMENT" "$JWT_TOKEN")
@@ -298,7 +300,7 @@ LEADERS_GROUP_ID=$(get_group_id "$LEADERS_GROUP_NAME")
 if [ -n "$LEADERS_GROUP_ID" ] && [ "$LEADERS_GROUP_ID" != "None" ]; then
     echo "  ℹ️  Group exists: $LEADERS_GROUP_ID"
 else
-    LEADERS_GROUP_ID=$(create_group "$LEADERS_GROUP_NAME" "CendekiAwan ${UNI_CODE^^} Finalist - Team Leaders (Kiro Pro)")
+    LEADERS_GROUP_ID=$(create_group "$LEADERS_GROUP_NAME" "CendekiAwan $(echo $UNI_CODE | tr a-z A-Z) Finalist - Team Leaders (Kiro Pro)")
     echo "  ✅ Group created: $LEADERS_GROUP_ID"
 fi
 
@@ -343,7 +345,7 @@ if [ -f "/tmp/${UNI_CODE}-team-accounts.csv" ]; then
         if [ -n "$GROUP_ID" ] && [ "$GROUP_ID" != "None" ]; then
             echo "│  ℹ️  Group exists: $GROUP_ID"
         else
-            GROUP_ID=$(create_group "$GROUP_NAME" "${UNI_CODE^^} Finalist: $team_name (Account: $account_id)")
+            GROUP_ID=$(create_group "$GROUP_NAME" "$(echo $UNI_CODE | tr a-z A-Z) Finalist: $team_name (Account: $account_id)")
             if [ -n "$GROUP_ID" ] && [ "$GROUP_ID" != "None" ]; then
                 echo "│  ✅ Group created: $GROUP_ID"
             else
@@ -380,7 +382,7 @@ fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║  ✅ ONBOARDING COMPLETE — ${UNI_CODE^^}"
+echo "║  ✅ ONBOARDING COMPLETE — $(echo $UNI_CODE | tr a-z A-Z)"
 echo "╠══════════════════════════════════════════════════════════════════╣"
 echo "║  Users created:    $USERS_CREATED"
 echo "║  Users existing:   $USERS_EXISTING"

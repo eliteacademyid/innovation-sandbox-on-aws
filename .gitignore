@@ -45,3 +45,7 @@ scripts/user-management/apu-finalist-teams.csv
 scripts/user-management/cendekiawan-mmu-coaches*.csv
 scripts/user-management/cendekiawan-mmu-coaches*.json
 scripts/user-management/config-mmu-coaches.json
+scripts/user-management/mmu-finalist-emails.csv
+scripts/user-management/mmu-finalist-teams.csv
+scripts/user-management/mmu-finalist-pass.txt
+scripts/user-management/*-finalist-pass.txt

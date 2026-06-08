@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#232f3e,#ff9900);padding:30px 40px;text-align:center;">
+              <h1 style="color:#ffffff;margin:0;font-size:22px;">🎉 Your AWS Sandbox is Ready!</h1>
+              <p style="color:#ffd699;margin:8px 0 0;font-size:14px;">CendekiAwan {{UNIVERSITY}} Finalist Program</p>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:30px 40px 20px;">
+              <p style="font-size:16px;color:#333;margin:0;">Hi <strong>{{NAME}}</strong>,</p>
+              <p style="font-size:14px;color:#555;margin:10px 0 0;line-height:1.6;">
+                Congratulations! Your AWS Sandbox account for the CendekiAwan {{UNIVERSITY}} Finalist competition is now active. Below are your login credentials and account details.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Login Credentials Box -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f7ff;border:1px solid #d0e3f7;border-radius:6px;">
+                <tr>
+                  <td style="padding:20px;">
+                    <h3 style="margin:0 0 12px;color:#232f3e;font-size:15px;">🔐 Login Credentials</h3>
+                    <table width="100%" cellpadding="4" cellspacing="0" style="font-size:13px;">
+                      <tr>
+                        <td style="color:#666;width:130px;">SSO Portal:</td>
+                        <td><a href="https://eliteacademy.awsapps.com/start" style="color:#0073bb;text-decoration:none;font-weight:bold;">https://eliteacademy.awsapps.com/start</a></td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Username:</td>
+                        <td style="font-family:monospace;color:#333;font-weight:bold;">{{EMAIL}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">One-time Password:</td>
+                        <td style="font-family:monospace;color:#d63600;font-weight:bold;font-size:14px;word-break:break-all;">{{PASSWORD}}</td>
+                      </tr>
+                    </table>
+                    <p style="font-size:12px;color:#888;margin:10px 0 0;font-style:italic;">⚠️ You'll be asked to set a permanent password on first login.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Lease Details Box -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fff4;border:1px solid #c6f0d5;border-radius:6px;">
+                <tr>
+                  <td style="padding:20px;">
+                    <h3 style="margin:0 0 12px;color:#232f3e;font-size:15px;">🏦 Sandbox Account Details</h3>
+                    <table width="100%" cellpadding="4" cellspacing="0" style="font-size:13px;">
+                      <tr>
+                        <td style="color:#666;width:130px;">Team:</td>
+                        <td style="font-weight:bold;color:#333;">{{TEAM_NAME}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Your Role:</td>
+                        <td style="font-weight:bold;color:#333;">{{ROLE}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Account ID:</td>
+                        <td style="font-family:monospace;color:#333;">{{ACCOUNT_ID}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Budget:</td>
+                        <td style="font-weight:bold;color:#333;">{{BUDGET}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Duration:</td>
+                        <td style="color:#333;">{{DURATION}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Expires:</td>
+                        <td style="color:#d63600;font-weight:bold;">{{EXPIRY_DATE}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Region:</td>
+                        <td style="color:#333;">{{REGIONS}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#666;">Freeze Threshold:</td>
+                        <td style="color:#333;">{{FREEZE_THRESHOLD}}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- What You Get -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <h3 style="margin:0 0 10px;color:#232f3e;font-size:15px;">✅ What's Included</h3>
+              <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;color:#555;">
+                <tr>
+                  <td style="border-bottom:1px solid #eee;">☁️ Full AWS access (all services except Opus models)</td>
+                </tr>
+                <tr>
+                  <td style="border-bottom:1px solid #eee;">🤖 Amazon Bedrock (Claude Haiku 4.5, Sonnet, Llama, Titan, Mistral)</td>
+                </tr>
+                <tr>
+                  <td style="border-bottom:1px solid #eee;">💰 Shared team budget — all members' usage counts toward one budget</td>
+                </tr>
+                <tr>
+                  <td style="border-bottom:1px solid #eee;">📊 Cost Explorer access to monitor spending</td>
+                </tr>
+                <tr>
+                  <td>🤖 Kiro Pro IDE (Team Leaders only — see guide below)</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Guides -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <h3 style="margin:0 0 10px;color:#232f3e;font-size:15px;">📚 Quick Start Guides</h3>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:8px 0;">
+                    <a href="https://docs.eliteacademy.id/guides/aws-sandbox.html" style="display:inline-block;background:#ff9900;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:bold;">📖 AWS Sandbox Guide</a>
+                  </td>
+                  <td style="padding:8px 0;">
+                    <a href="https://docs.eliteacademy.id/guides/kiro-login.html" style="display:inline-block;background:#232f3e;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:bold;">🤖 Kiro Login Guide</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Important Notes -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff8f0;border:1px solid #ffd699;border-radius:6px;">
+                <tr>
+                  <td style="padding:15px 20px;">
+                    <h3 style="margin:0 0 8px;color:#d63600;font-size:14px;">⚠️ Important Notes</h3>
+                    <ul style="margin:0;padding-left:18px;font-size:12px;color:#555;line-height:1.8;">
+                      <li>Account freezes automatically when budget threshold is reached</li>
+                      <li>Claude Opus models are <strong>blocked</strong> — use Haiku or Sonnet</li>
+                      <li>Do NOT share your password — each member has their own login</li>
+                      <li>All resources are deleted when the lease expires</li>
+                      <li>Monitor your spending via Cost Explorer in the AWS Console</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Support -->
+          <tr>
+            <td style="padding:0 40px 30px;">
+              <h3 style="margin:0 0 8px;color:#232f3e;font-size:14px;">🆘 Need Help?</h3>
+              <p style="font-size:12px;color:#666;margin:0;line-height:1.6;">
+                Contact: <a href="mailto:andrian@eliteacademy.id" style="color:#0073bb;">andrian@eliteacademy.id</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#232f3e;padding:20px 40px;text-align:center;">
+              <p style="color:#999;font-size:11px;margin:0;">
+                CendekiAwan Program — Powered by AWS | Managed by Elite Academy & Elitery<br>
+                This is an automated message. Please do not reply directly.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
