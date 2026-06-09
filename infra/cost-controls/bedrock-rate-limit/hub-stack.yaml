@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB Bedrock Rate Limiter - Hub Account Resources.
+  Deployed once to the ISB hub account (147826551593).
+  Owns the throttle Lambda, the auto-recovery Lambda, the DynamoDB state
+  table, and the EventBridge schedule. SNS subscriptions to each member
+  account are added by scripts/cost-controls/deploy-bedrock-rate-limit.sh
+  whenever a new sandbox account joins the pool.
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: myisb
+    Description: ISB namespace.
+
+  ThrottleDurationSeconds:
+    Type: Number
+    Default: 3600
+    Description: How long a throttle lasts before auto-recovery (seconds).
+    MinValue: 300
+
+  AdminEmail:
+    Type: String
+    Default: andrian@eliteacademy.id
+    Description: Admin email for throttle/recovery notifications (subscribed to SNS topic; AWS will send a confirmation email).
+
+  ThrottleHandlerS3Bucket:
+    Type: String
+    Description: S3 bucket holding the throttle handler zip.
+
+  ThrottleHandlerS3Key:
+    Type: String
+    Description: S3 key for the throttle handler zip.
+
+  RecoveryHandlerS3Key:
+    Type: String
+    Description: S3 key for the recovery handler zip.
+
+Resources:
+
+  ThrottleEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'isb-${Namespace}-bedrock-throttle-events'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: account_id
+          AttributeType: S
+        - AttributeName: throttled_at
+          AttributeType: N
+      KeySchema:
+        - AttributeName: account_id
+          KeyType: HASH
+        - AttributeName: throttled_at
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  AdminNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'isb-${Namespace}-bedrock-admin-notifications'
+      DisplayName: ISB Bedrock Throttle Notifications
+      KmsMasterKeyId: alias/aws/sns
+
+  AdminEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AdminNotificationTopic
+      Protocol: email
+      Endpoint: !Ref AdminEmail
+
+  ThrottleHandlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-bedrock-throttle-handler'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: ThrottleHandlerPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AssumeMemberThrottleRole
+                Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/isb-${Namespace}-bedrock-throttle-role'
+              - Sid: WriteThrottleEvents
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:GetItem
+                Resource: !GetAtt ThrottleEventsTable.Arn
+              - Sid: PublishNotification
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref AdminNotificationTopic
+
+  RecoveryHandlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-bedrock-recovery-handler'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: RecoveryHandlerPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AssumeMemberThrottleRole
+                Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/isb-${Namespace}-bedrock-throttle-role'
+              - Sid: ScanThrottleEvents
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                  - dynamodb:GetItem
+                Resource: !GetAtt ThrottleEventsTable.Arn
+              - Sid: PublishNotification
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref AdminNotificationTopic
+
+  ThrottleHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-bedrock-throttle-handler'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt ThrottleHandlerRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          NAMESPACE: !Ref Namespace
+          THROTTLE_TABLE_NAME: !Ref ThrottleEventsTable
+          THROTTLE_DURATION_SECONDS: !Ref ThrottleDurationSeconds
+          NOTIFICATION_TOPIC_ARN: !Ref AdminNotificationTopic
+      Code:
+        S3Bucket: !Ref ThrottleHandlerS3Bucket
+        S3Key: !Ref ThrottleHandlerS3Key
+
+  RecoveryHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-bedrock-recovery-handler'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt RecoveryHandlerRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          NAMESPACE: !Ref Namespace
+          THROTTLE_TABLE_NAME: !Ref ThrottleEventsTable
+          NOTIFICATION_TOPIC_ARN: !Ref AdminNotificationTopic
+      Code:
+        S3Bucket: !Ref ThrottleHandlerS3Bucket
+        S3Key: !Ref RecoveryHandlerS3Key
+
+  # NOTE: SNS-invoke permissions for member-account topics are added by
+  # scripts/cost-controls/subscribe-member-topics.sh — one per account, so each
+  # has a concrete SourceArn (Lambda::Permission disallows wildcards there).
+
+  RecoveryScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'isb-${Namespace}-bedrock-recovery-schedule'
+      Description: Run Bedrock throttle recovery sweeper every 5 minutes.
+      ScheduleExpression: 'rate(5 minutes)'
+      State: ENABLED
+      Targets:
+        - Id: RecoveryLambda
+          Arn: !GetAtt RecoveryHandler.Arn
+
+  RecoveryScheduleInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RecoveryHandler
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt RecoveryScheduleRule.Arn
+
+Outputs:
+  ThrottleHandlerArn:
+    Value: !GetAtt ThrottleHandler.Arn
+    Export:
+      Name: !Sub 'isb-${Namespace}-bedrock-throttle-handler-arn'
+  RecoveryHandlerArn:
+    Value: !GetAtt RecoveryHandler.Arn
+    Export:
+      Name: !Sub 'isb-${Namespace}-bedrock-recovery-handler-arn'
+  ThrottleEventsTableName:
+    Value: !Ref ThrottleEventsTable
+    Export:
+      Name: !Sub 'isb-${Namespace}-bedrock-throttle-events-table'
+  AdminNotificationTopicArn:
+    Value: !Ref AdminNotificationTopic
+    Export:
+      Name: !Sub 'isb-${Namespace}-bedrock-admin-notifications-arn'
