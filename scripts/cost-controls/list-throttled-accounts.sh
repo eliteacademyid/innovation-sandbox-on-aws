@@ -32,7 +32,11 @@ ITEMS=$(aws dynamodb scan --table-name "$TABLE" \
   --expression-attribute-names '{"#s":"status"}' \
   --expression-attribute-values '{":a":{"S":"ACTIVE"}}' \
   --region "$REGION" --profile "$HUB_PROFILE" \
-  --output json)
+  --output json 2>/dev/null) || ITEMS='{"Items":[]}'
+
+if [[ -z "$ITEMS" ]]; then
+  ITEMS='{"Items":[]}'
+fi
 
 if [[ "$QUIET" == "1" ]]; then
   echo "$ITEMS" | python3 -c '
@@ -43,9 +47,9 @@ for it in json.load(sys.stdin)["Items"]:
   exit 0
 fi
 
-echo "$ITEMS" | python3 - <<'PY'
+python3 -c '
 import json, sys, time
-data = json.load(sys.stdin)
+data = json.loads(sys.argv[1])
 items = sorted(data["Items"], key=lambda x: int(x["throttled_at"]["N"]))
 if not items:
     print("No active throttles.")
@@ -59,7 +63,7 @@ for it in items:
     e_at = int(it["expires_at"]["N"])
     alarm = it.get("alarm_name", {"S": "?"})["S"]
     print(f"{aid:<14} {reason:<8} "
-          f"{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(t_at)):<22} "
-          f"{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(e_at)):<22} "
+          f"{time.strftime(chr(37)+"Y-"+chr(37)+"m-"+chr(37)+"d "+chr(37)+"H:"+chr(37)+"M:"+chr(37)+"S UTC", time.gmtime(t_at)):<22} "
+          f"{time.strftime(chr(37)+"Y-"+chr(37)+"m-"+chr(37)+"d "+chr(37)+"H:"+chr(37)+"M:"+chr(37)+"S UTC", time.gmtime(e_at)):<22} "
           f"{alarm}")
-PY
+' "$ITEMS"
