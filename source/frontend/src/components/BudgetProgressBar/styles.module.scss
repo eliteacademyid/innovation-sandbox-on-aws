@@ -25,18 +25,7 @@
 .progress {
   height: 100%;
   background-color: cloudscape.$color-background-button-primary-default;
-  width: 0%;
-  animation: expand 1s ease-in-out forwards;
-}
-
-@keyframes expand {
-  0% {
-    width: 0;
-  }
-
-  100% {
-    width: attr(style width);
-  }
+  transition: width 0.5s ease-in-out;
 }
 
 .label {
