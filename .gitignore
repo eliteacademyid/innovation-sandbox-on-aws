@@ -50,3 +50,6 @@ scripts/user-management/mmu-finalist-emails.csv
 scripts/user-management/mmu-finalist-teams.csv
 scripts/user-management/mmu-finalist-pass.txt
 scripts/user-management/*-finalist-pass.txt
+
+# Python bytecode
+__pycache__/

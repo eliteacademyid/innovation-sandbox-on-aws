@@ -118,10 +118,15 @@ Resources:
       ActionsEnabled: true
       AlarmActions:
         - !Ref ThrottleTriggerTopic
-      Namespace: AWS/Bedrock
-      MetricName: Invocations
-      Period: 60
-      Statistic: Sum
+      Metrics:
+        - Id: invocations
+          MetricStat:
+            Metric:
+              Namespace: AWS/Bedrock
+              MetricName: Invocations
+            Period: 60
+            Stat: Sum
+          ReturnData: true
       EvaluationPeriods: !Ref RpmEvaluationPeriods
       DatapointsToAlarm: !Ref RpmEvaluationPeriods
       Threshold: !Ref RpmThreshold
