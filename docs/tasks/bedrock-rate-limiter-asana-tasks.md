@@ -113,12 +113,29 @@ Commit: `663f05c` on `main`
 
 ---
 
-### Subtask 8: 🔲 [v2] Add AWS Cost Anomaly Detection
+### Subtask 8: ✅ [DONE] AWS Cost Anomaly Detection
 - **Assignee:** Andrian
 - **Due:** 2026-06-20
-- **Status:** Backlog
-- **Estimated Time:** 3h
-- **Notes:** Phase 2 of full Option D. Set up per-account Cost Anomaly Detection on Bedrock. Catches slow-burn overspend that CloudWatch RPM/TPM misses. Lower priority since the $10/day scenario would be caught within a few hours by ISB's existing budget monitoring.
+- **Status:** Complete (2026-07-02)
+- **Estimated Time:** 3h (actual: ~30m)
+- **Notes:** 
+  **Monitors created (management account 862099794180):**
+  1. `ISB-Bedrock-Cost-Monitor` (CUSTOM) — scoped to 5 active sandbox accounts
+     - ARN: `arn:aws:ce::862099794180:anomalymonitor/6077dcd4-a240-4a35-8f0d-0ae68d522f2e`
+  2. `ISB-Per-Account-Cost-Monitor` (DIMENSIONAL, LINKED_ACCOUNT) — all org accounts
+     - ARN: `arn:aws:ce::862099794180:anomalymonitor/b7af143e-32bf-42d8-b9a3-88fea2f5c3c8`
+  
+  **Subscription:**
+  - Name: `ISB-Bedrock-Anomaly-Alerts`
+  - Frequency: IMMEDIATE
+  - Threshold: $5 total impact (absolute)
+  - SNS: `arn:aws:sns:us-east-1:862099794180:isb-myisb-cost-anomaly-alerts`
+  - Email: andrian@eliteacademy.id
+  
+  **Limitations discovered:**
+  - Only 1 SERVICE dimensional monitor per account (default already existed)
+  - CUSTOM monitors don't support AND expressions (can't filter service+account together)
+  - Workaround: separate CUSTOM (specific accounts) + DIMENSIONAL (per-account) monitors
 
 ---
 

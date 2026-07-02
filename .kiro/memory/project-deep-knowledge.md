@@ -100,6 +100,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Lease Templates: `InnovationSandbox-Data-LeaseTemplateTable5128F8F4-1V51RSU3M18W8`
 - Throttle Events: `isb-myisb-bedrock-throttle-events`
 - Prompt Cache (model router): `isb-myisb-bedrock-prompt-cache`
+- **Note:** All ISB DynamoDB tables are CMK-encrypted (key: arn:aws:kms:ap-southeast-1:147826551593:key/cbbd427b-c8d9-4c7d-b09e-47f195cf9116)
 
 ## Operational Commands
 - Deploy all: `npm run deploy:all`
@@ -131,13 +132,24 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - Kill-switch: freeze ALL sandboxes at once (emergency)
 - Why SCP not IAM: AWS protects AWSReservedSSO_* roles as UnmodifiableEntity; SCP doesn't need cross-account IAM in sandboxes
 
-## Bedrock Model Router (code complete, not yet deployed)
+## Bedrock Model Router (DEPLOYED 2 Jul 2026)
 - Lambda: complexity-based routing (heuristic classifier)
-- Simple → Amazon Nova Pro (us-east-1, cheapest)
-- Complex → Claude Sonnet 3.5 (round-robin: us-east-1, us-west-2, eu-west-1)
-- DynamoDB prompt cache with 24h TTL
-- Stack: `infra/cost-controls/bedrock-model-router/stack.yaml`
+- Simple → Amazon Nova Pro (`amazon.nova-pro-v1:0`, us-east-1)
+- Complex → Claude Sonnet 4.6 (`us.anthropic.claude-sonnet-4-6` inference profile, round-robin: us-east-1, us-west-2, eu-west-1)
+- **Important:** Claude Sonnet 4+ requires inference profile ID — direct model ID invocation returns ValidationException
+- DynamoDB prompt cache (`isb-myisb-bedrock-prompt-cache`) with 24h TTL
+- Stack: `isb-myisb-bedrock-model-router` (ap-southeast-1)
 - Deploy: `./scripts/cost-controls/deploy-bedrock-model-router.sh`
+
+## Bedrock Daily Usage Report (DEPLOYED 2 Jul 2026)
+- Lambda: queries CloudWatch metrics across active sandbox accounts, builds CSV, sends via SES
+- Schedule: daily 08:00 WIB (01:00 UTC) via EventBridge
+- Metrics: InputTokenCount, OutputTokenCount, Invocations per account per region
+- Delivery: SES email with CSV attachment to admin
+- Stack: `isb-myisb-bedrock-usage-report` (ap-southeast-1)
+- Deploy: `./scripts/cost-controls/deploy-bedrock-usage-report.sh`
+- **Note:** SES identities need verification in hub account (ap-southeast-1) — helpdesk@eliteacademy.id, andrian@eliteacademy.id
+- IAM requires `kms:Decrypt` with condition `kms:ViaService: dynamodb` (DynamoDB tables are CMK-encrypted)
 
 ## Key Lessons Learned
 1. Nuke config must filter org-managed resources (CloudTrail, IAM service roles) BEFORE registration
@@ -180,9 +192,22 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - v1.2.10: js-cookie, uuid CVE fixes (May 2026)
 - v1.2.11: BudgetProgressBar fix + react-router CVE (June 2026)
 - v1.2.12: Security release — openssl (5 CVEs), golang, jq, python3-pip, vite, form-data (deployed 2 Jul 2026)
+- Rate Limiter SCP migration: deployed 18 Jun 2026, committed 2 Jul 2026
+- Model Router: deployed & tested 2 Jul 2026 (commit cc3329b)
+- Daily Usage Report: deployed 2 Jul 2026 (commit b9b83c7), SES pending verification
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
 - 87 cleanup failures from non-existent CloudTrail trail (fixed via nuke config filter)
 - 7/10 accounts quarantined on first registration (OU drift — fixed by moving to Entry OU)
 - June 18, 2026: Rate limiter architecture change — IAM inline → SCP-based (SSO roles are UnmodifiableEntity)
+
+## Remaining Backlog
+- Subtask #8: Cost Anomaly Detection — per-account on Bedrock service (3h)
+- Subtask #9: Per-team Application Inference Profiles — cleaner attribution (4h)
+
+## SES Setup Notes
+- Management account (862099794180) has verified: eliteacademy.id, belajar.eliteacademy.id, dev.eliteacademy.id, andrian@, helpdesk@
+- Hub account (147826551593) SES: identities created but pending verification in ap-southeast-1
+- Rate limiter uses SNS (not SES) for notifications — works without SES setup
+- Usage report uses SES — needs verified identity in hub account to send
