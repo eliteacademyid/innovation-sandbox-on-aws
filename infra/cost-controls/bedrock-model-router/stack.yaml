@@ -83,8 +83,9 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-sonnet-4-6'
                   - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/amazon.nova-pro-v1:0'
+                  - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-4-6'
               - Sid: CacheReadWrite
                 Effect: Allow
                 Action:

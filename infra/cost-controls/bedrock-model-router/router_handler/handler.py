@@ -40,7 +40,7 @@ CACHE_TABLE_NAME = os.environ.get("CACHE_TABLE_NAME", "")
 CACHE_TTL_HOURS = int(os.environ.get("CACHE_TTL_HOURS", "24"))
 COMPLEXITY_THRESHOLD = int(os.environ.get("COMPLEXITY_THRESHOLD", "500"))
 
-CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+CLAUDE_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
 NOVA_MODEL_ID = "amazon.nova-pro-v1:0"
 
 # Indicators that suggest complex reasoning is needed
