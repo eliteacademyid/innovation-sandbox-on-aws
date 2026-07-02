@@ -74,7 +74,7 @@ def lambda_handler(event: dict[str, Any], _ctx: Any) -> dict[str, Any]:
     force_model = event.get("force_model")
 
     # Check cache first
-    cache_key = _compute_cache_key(prompt, system_prompt)
+    cache_key = _compute_cache_key(prompt, system_prompt, temperature, max_tokens)
     cached = _get_cached_response(cache_key)
     if cached:
         LOG.info("cache_hit key=%s", cache_key[:16])
@@ -193,9 +193,9 @@ def _invoke_model(
         raise
 
 
-def _compute_cache_key(prompt: str, system_prompt: str) -> str:
-    """SHA-256 hash of prompt + system_prompt for cache lookup."""
-    raw = f"{system_prompt}||{prompt}"
+def _compute_cache_key(prompt: str, system_prompt: str, temperature: float = 0.7, max_tokens: int = 1024) -> str:
+    """SHA-256 hash of prompt + system_prompt + params for cache lookup."""
+    raw = f"{system_prompt}||{prompt}||t={temperature}||m={max_tokens}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
