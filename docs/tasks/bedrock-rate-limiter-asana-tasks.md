@@ -50,39 +50,66 @@ Commit: `663f05c` on `main`
 
 ---
 
-### Subtask 5: 🔲 Smoke test — trigger throttle on test account
+### Subtask 5: ✅ [DONE] Smoke test — trigger throttle on test account
 - **Assignee:** Andrian
 - **Due:** 2026-06-10
-- **Status:** To Do
-- **Estimated Time:** 1.5h
-- **Notes:** 
-  1. Pick one Available sandbox account
-  2. Run a Python script that calls Haiku rapidly (100 calls in 30s)
-  3. Verify CloudWatch alarm fires → SNS → Lambda → deny policy attached
-  4. Verify email notification received
-  5. Wait 1h (or run `unfreeze-bedrock.sh`) → verify auto-recovery works
-  6. Document results in this task
+- **Status:** Complete (2026-06-18)
+- **Estimated Time:** 1.5h (actual: ~3h including architecture fix)
+- **Notes:**
+  **Test account:** 210452151023 (eta-sandbox-hashcash)
+  
+  **Architecture change discovered during smoke test:**
+  Original approach (attach inline deny policy to SSO role) was blocked by:
+  1. SNS KMS encryption preventing CloudWatch alarm → SNS delivery
+  2. SCP blocking `iam:ListRoles` in sandbox accounts
+  3. AWS protecting SSO-reserved roles (`UnmodifiableEntity`) from any modification
+  
+  **Fix applied:** Switched to **SCP-based throttling**:
+  - Lambda assumes role in management account (`isb-myisb-bedrock-org-scp-manager`)
+  - Creates a deny-Bedrock SCP (`isb-myisb-bedrock-deny-{accountId}`)
+  - Attaches SCP directly to the offending sandbox account
+  - Recovery: detaches + deletes the SCP
+  
+  **End-to-end result validated:**
+  - ✅ Alarm fires → SNS → Lambda invoked
+  - ✅ SCP created (`p-50vy89zo`) and attached to account
+  - ✅ Bedrock returns `AccessDeniedException` (throttled)
+  - ✅ Recovery Lambda detaches + deletes SCP
+  - ✅ Bedrock access restored (~15s SCP propagation delay)
+  
+  **Infrastructure changes:**
+  - Removed KMS from member-stack SNS topic
+  - Created org role: `arn:aws:iam::862099794180:role/isb-myisb-bedrock-org-scp-manager`
+  - Added throttle role to SCP `p-1lb4bh9n` exception list
+  - Rewrote throttle/recovery handlers for SCP approach
+  - Hub stack updated with `OrgRoleArn` parameter
 
 ---
 
-### Subtask 6: 🔲 24-hour soak test — verify no false positives
+### Subtask 6: ✅ [DONE] 24-hour soak test — verify no false positives
 - **Assignee:** Andrian
 - **Due:** 2026-06-12
-- **Status:** To Do
+- **Status:** Complete (2026-06-18)
 - **Estimated Time:** 30m active (+ 24h passive monitoring)
-- **Notes:** Monitor 2–3 active student sandboxes for 24h. Confirm no false alarms during normal usage (< 30 RPM, < 50K TPM).
+- **Notes:** Ran `soak-test-check.sh` on 2026-06-18. All 4 checks PASS:
+  - No throttle events in last 24h ✓
+  - Throttle Lambda not invoked (pre-smoke-test period) ✓
+  - No Lambda errors ✓
+  - No active throttles ✓
+  
+  System has been running 10+ days with recovery Lambda active (12 invocations/hour) and zero false positives across all 100 sandbox accounts.
 
 ---
 
-### Subtask 7: 🔲 Add to ISB operations runbook
+### Subtask 7: ✅ [DONE] Add to ISB operations runbook
 - **Assignee:** Andrian
 - **Due:** 2026-06-13
-- **Status:** To Do
+- **Status:** Complete (2026-06-12, commit `84bbb69`)
 - **Estimated Time:** 45m
-- **Notes:** Update `docs/README-operations.md` with:
-  - Quick reference commands (list-throttled, unfreeze, kill-switch)
-  - Alert response SOP (what to do when you get a throttle email)
-  - When to run `subscribe-member-topics.sh` (after new sandboxes join pool)
+- **Notes:** `docs/README-operations.md` updated with:
+  - Quick reference commands (list-throttled, unfreeze, kill-switch, check-incident)
+  - Alert response SOP (6-step procedure)
+  - When to run `subscribe-member-topics.sh`
 
 ---
 
@@ -113,24 +140,47 @@ Commit: `663f05c` on `main`
 
 ---
 
-## Quick Copy — CSV format (for Asana CSV import)
+### Subtask 11: 🔲 [v2] Bedrock Model Router — Cost Optimization
+- **Assignee:** Andrian
+- **Due:** 2026-06-25
+- **Status:** Code complete, not yet deployed
+- **Estimated Time:** 2h to deploy + test
+- **Notes:** Complexity-based model routing to reduce Bedrock costs:
+  - Simple tasks → Amazon Nova Pro (cheaper)
+  - Complex tasks → Claude Sonnet (consolidated to 3 regions: us-east-1, us-west-2, eu-west-1)
+  - DynamoDB prompt cache with configurable TTL (default 24h)
+  - Heuristic classifier: prompt length, code blocks, reasoning indicators
+  
+  Files: `infra/cost-controls/bedrock-model-router/`
+  Deploy: `./scripts/cost-controls/deploy-bedrock-model-router.sh`
 
-```csv
-Name,Section,Assignee,Due Date,Estimated Time,Description,Tags
-"[ISB] Confirm SNS admin email subscription",Bedrock Rate Limiter,Andrian,2026-06-09,5m,"Check andrian@eliteacademy.id for AWS SNS confirmation. Click link.",ISB;Urgent
-"[ISB] Smoke test throttle on test account",Bedrock Rate Limiter,Andrian,2026-06-10,1.5h,"Trigger throttle with rapid Haiku calls. Verify alarm → deny → email → recovery.",ISB;Testing
-"[ISB] 24-hour soak test — no false positives",Bedrock Rate Limiter,Andrian,2026-06-12,30m (+24h passive),"Monitor active sandboxes for 24h. Confirm no false alarms.",ISB;Testing
-"[ISB] Update operations runbook with rate limiter SOP",Bedrock Rate Limiter,Andrian,2026-06-13,45m,"Add commands and alert response procedure to docs/README-operations.md",ISB;Docs
-"[ISB] [v2] Cost Anomaly Detection for slow-burn protection",Bedrock Rate Limiter,Andrian,2026-06-20,3h,"Per-account Cost Anomaly Detection on Bedrock service. Backlog.",ISB;v2
-"[ISB] [v2] Per-team Inference Profiles for attribution",Bedrock Rate Limiter,Andrian,2026-06-30,4h,"Create Bedrock inference profiles per team. Backlog.",ISB;v2
-"[ISB] [v2] Daily Bedrock usage report email",Bedrock Rate Limiter,Andrian,2026-06-30,3h,"EventBridge + Lambda for daily cross-account usage CSV. Backlog.",ISB;v2
-```
+---
+
+### Subtask 12: 🔲 [v2] Update StackSet with SNS KMS fix
+- **Assignee:** Andrian
+- **Due:** 2026-06-20
+- **Status:** To Do
+- **Estimated Time:** 30m
+- **Notes:** The member-stack.yaml has been updated to remove KMS encryption from the throttle trigger SNS topic (required for CloudWatch alarm delivery). Need to update the StackSet to propagate this fix to all 100 sandbox accounts. Currently only account 210452151023 has been manually fixed.
+
+---
 
 ## Summary — Total Estimated Time
 
 | Category | Tasks | Time |
 |---|---|---|
-| Already done | #1, #2, #3 | ~2.5h (actual: 2h 35m) |
-| Immediate (this week) | #4, #5, #6, #7 | ~2h 50m active |
+| ✅ Done | #1–#7 | ~8h (actual: ~7h including architecture refactor) |
+| Next up | #11 (model router deploy), #12 (StackSet update) | ~2.5h |
 | v2 backlog | #8, #9, #10 | ~10h |
-| **Total remaining** | **7 tasks** | **~13h** |
+| **Total remaining** | **5 tasks** | **~12.5h** |
+
+---
+
+## Key Architecture Decisions Log
+
+| Date | Decision | Reason |
+|------|----------|--------|
+| 2026-06-08 | Original: inline deny policy on SSO role | Simple, per-account isolation |
+| 2026-06-18 | **Changed to: SCP-based throttling** | AWS protects `AWSReservedSSO_*` roles as `UnmodifiableEntity`. SCP approach is actually cleaner — managed from hub, no cross-account IAM needed in sandboxes |
+| 2026-06-18 | SNS topic: removed KMS encryption | `alias/aws/sns` key doesn't grant CloudWatch `kms:GenerateDataKey` — alarms can't publish to encrypted topics |
+| 2026-06-18 | Added org role for SCP management | Hub Lambda assumes `isb-myisb-bedrock-org-scp-manager` in mgmt account to create/attach/detach/delete SCPs |

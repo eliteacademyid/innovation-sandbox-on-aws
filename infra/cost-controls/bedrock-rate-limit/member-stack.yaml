@@ -44,7 +44,10 @@ Resources:
     Properties:
       TopicName: !Sub 'isb-${Namespace}-bedrock-throttle-trigger'
       DisplayName: ISB Bedrock Throttle Trigger
-      KmsMasterKeyId: alias/aws/sns
+      # NOTE: No KMS encryption — CloudWatch Alarms cannot publish to SNS topics
+      # encrypted with alias/aws/sns (the managed key lacks kms:GenerateDataKey
+      # grant for cloudwatch.amazonaws.com). Topic carries only alarm metadata,
+      # no sensitive data.
 
   ThrottleTriggerTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -161,6 +164,8 @@ Resources:
                   - iam:ListRoles
                   - iam:GetRole
                 Resource: '*'
+                # NOTE: The org SCP denies iam:ListRoles with PathPrefix=/aws-reserved/...
+                # Our Lambda calls ListRoles without PathPrefix and filters client-side.
               - Sid: ManageDenyPolicyOnIsbUsersRole
                 Effect: Allow
                 Action:
@@ -168,7 +173,7 @@ Resources:
                   - iam:DeleteRolePolicy
                   - iam:GetRolePolicy
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_${Namespace}_IsbUsers_*'
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_${Namespace}_IsbUsers*'
                 Condition:
                   StringEquals:
                     iam:PolicyName: BedrockRateLimitDeny

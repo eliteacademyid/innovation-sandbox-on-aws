@@ -24,6 +24,10 @@ Parameters:
     Default: andrian@eliteacademy.id
     Description: Admin email for throttle/recovery notifications (subscribed to SNS topic; AWS will send a confirmation email).
 
+  OrgRoleArn:
+    Type: String
+    Description: ARN of the IAM role in the management account that grants organizations:* for SCP management.
+
   ThrottleHandlerS3Bucket:
     Type: String
     Description: S3 bucket holding the throttle handler zip.
@@ -90,10 +94,10 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: AssumeMemberThrottleRole
+              - Sid: AssumeOrgRole
                 Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/isb-${Namespace}-bedrock-throttle-role'
+                Resource: !Ref OrgRoleArn
               - Sid: WriteThrottleEvents
                 Effect: Allow
                 Action:
@@ -124,10 +128,10 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: AssumeMemberThrottleRole
+              - Sid: AssumeOrgRole
                 Effect: Allow
                 Action: sts:AssumeRole
-                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/isb-${Namespace}-bedrock-throttle-role'
+                Resource: !Ref OrgRoleArn
               - Sid: ScanThrottleEvents
                 Effect: Allow
                 Action:
@@ -155,6 +159,7 @@ Resources:
           THROTTLE_TABLE_NAME: !Ref ThrottleEventsTable
           THROTTLE_DURATION_SECONDS: !Ref ThrottleDurationSeconds
           NOTIFICATION_TOPIC_ARN: !Ref AdminNotificationTopic
+          ORG_ROLE_ARN: !Ref OrgRoleArn
       Code:
         S3Bucket: !Ref ThrottleHandlerS3Bucket
         S3Key: !Ref ThrottleHandlerS3Key
@@ -173,6 +178,7 @@ Resources:
           NAMESPACE: !Ref Namespace
           THROTTLE_TABLE_NAME: !Ref ThrottleEventsTable
           NOTIFICATION_TOPIC_ARN: !Ref AdminNotificationTopic
+          ORG_ROLE_ARN: !Ref OrgRoleArn
       Code:
         S3Bucket: !Ref ThrottleHandlerS3Bucket
         S3Key: !Ref RecoveryHandlerS3Key

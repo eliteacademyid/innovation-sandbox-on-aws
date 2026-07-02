@@ -1,17 +1,17 @@
 # Copyright Elite Academy. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
-Bedrock Rate Limit — Recovery Handler.
+Bedrock Rate Limit — Recovery Handler (SCP-based).
 
 Triggered every 5 minutes by EventBridge. Scans DynamoDB for ACTIVE throttle
-records that have passed their expires_at, assumes role into the member
-account, removes the deny inline policy from the SSO IsbUsers role, and
-marks the record CLEARED.
+records that have passed their expires_at, detaches and deletes the deny-Bedrock
+SCP from the sandbox account, and marks the record CLEARED.
 
 Environment variables:
 - NAMESPACE              e.g. "myisb"
 - THROTTLE_TABLE_NAME    DynamoDB table name
 - NOTIFICATION_TOPIC_ARN SNS topic for admin notifications
+- ORG_ROLE_ARN           Role ARN in management account with Organizations permissions
 """
 
 from __future__ import annotations
@@ -32,8 +32,7 @@ LOG.setLevel(logging.INFO)
 NAMESPACE = os.environ["NAMESPACE"]
 THROTTLE_TABLE_NAME = os.environ["THROTTLE_TABLE_NAME"]
 NOTIFICATION_TOPIC_ARN = os.environ["NOTIFICATION_TOPIC_ARN"]
-
-DENY_POLICY_NAME = "BedrockRateLimitDeny"
+ORG_ROLE_ARN = os.environ["ORG_ROLE_ARN"]
 
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
@@ -47,13 +46,18 @@ def lambda_handler(_event: dict[str, Any], _ctx: Any) -> dict[str, Any]:
     expired = _scan_expired(now)
     LOG.info("found %d expired throttles", len(expired))
 
+    if not expired:
+        return {"cleared": [], "failed": []}
+
+    orgs = _get_orgs_client()
     cleared: list[str] = []
     failed: list[dict[str, str]] = []
+
     for item in expired:
         try:
-            _clear_throttle(item)
+            _clear_throttle(orgs, item)
             cleared.append(item["account_id"])
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             LOG.exception("Failed to clear throttle for %s: %s", item.get("account_id"), exc)
             failed.append({"account_id": item.get("account_id", ""), "error": str(exc)})
 
@@ -74,25 +78,33 @@ def _scan_expired(now: int) -> list[dict[str, Any]]:
     return items
 
 
-def _clear_throttle(item: dict[str, Any]) -> None:
+def _clear_throttle(orgs, item: dict[str, Any]) -> None:
     account_id = item["account_id"]
-    sso_role_name = item.get("sso_role_name")
+    policy_id = item.get("scp_policy_id")
+    scp_name = item.get("scp_name")
 
-    creds = _assume_role(account_id)
-    iam = _iam_client(creds)
+    if policy_id:
+        # Detach SCP from account
+        try:
+            orgs.detach_policy(PolicyId=policy_id, TargetId=account_id)
+            LOG.info("detached SCP %s from %s", policy_id, account_id)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "PolicyNotAttachedException":
+                LOG.info("SCP already detached from %s", account_id)
+            else:
+                raise
 
-    if not sso_role_name:
-        sso_role_name = _find_sso_isb_users_role(iam)
+        # Delete the SCP (one per account, no longer needed)
+        try:
+            orgs.delete_policy(PolicyId=policy_id)
+            LOG.info("deleted SCP %s", policy_id)
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "PolicyInUseException":
+                LOG.warning("SCP %s still in use, skipping delete", policy_id)
+            else:
+                raise
 
-    try:
-        iam.delete_role_policy(RoleName=sso_role_name, PolicyName=DENY_POLICY_NAME)
-        LOG.info("removed deny policy from role=%s account=%s", sso_role_name, account_id)
-    except ClientError as exc:
-        if exc.response.get("Error", {}).get("Code") == "NoSuchEntity":
-            LOG.info("deny policy already absent on %s — marking cleared", account_id)
-        else:
-            raise
-
+    # Mark cleared in DynamoDB
     table.update_item(
         Key={"account_id": account_id, "throttled_at": int(item["throttled_at"])},
         UpdateExpression="SET #s = :cleared, cleared_at = :ts",
@@ -103,43 +115,25 @@ def _clear_throttle(item: dict[str, Any]) -> None:
     _send_notification(
         subject=f"[ISB] Bedrock throttle lifted — account {account_id}",
         body=(
-            f"Bedrock rate-limit throttle has been auto-recovered.\n\n"
+            f"Bedrock rate-limit throttle auto-recovered.\n\n"
             f"Account ID:    {account_id}\n"
             f"Originally:    {item.get('reason', '?')} breach at "
             f"{time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(int(item['throttled_at'])))}\n"
-            f"Cleared at:    {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}\n\n"
-            f"Bedrock access restored to IsbUsers SSO sessions in this account.\n"
+            f"Cleared at:    {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}\n"
+            f"SCP removed:   {scp_name} ({policy_id})\n\n"
+            f"Bedrock access restored for this account.\n"
         ),
     )
 
 
-def _assume_role(member_account_id: str) -> dict[str, str]:
-    role_arn = f"arn:aws:iam::{member_account_id}:role/isb-{NAMESPACE}-bedrock-throttle-role"
-    resp = sts.assume_role(
-        RoleArn=role_arn,
-        RoleSessionName="isb-bedrock-recovery",
-        DurationSeconds=900,
-    )
-    return resp["Credentials"]
-
-
-def _iam_client(creds: dict[str, str]):
+def _get_orgs_client():
+    creds = sts.assume_role(RoleArn=ORG_ROLE_ARN, RoleSessionName="isb-bedrock-recovery")["Credentials"]
     return boto3.client(
-        "iam",
+        "organizations",
         aws_access_key_id=creds["AccessKeyId"],
         aws_secret_access_key=creds["SecretAccessKey"],
         aws_session_token=creds["SessionToken"],
     )
-
-
-def _find_sso_isb_users_role(iam) -> str:
-    needle = f"AWSReservedSSO_{NAMESPACE}_IsbUsers_"
-    paginator = iam.get_paginator("list_roles")
-    for page in paginator.paginate(PathPrefix="/aws-reserved/sso.amazonaws.com/"):
-        for role in page["Roles"]:
-            if role["RoleName"].startswith(needle):
-                return role["RoleName"]
-    raise RuntimeError(f"No SSO role matching {needle}* found")
 
 
 def _send_notification(subject: str, body: str) -> None:
