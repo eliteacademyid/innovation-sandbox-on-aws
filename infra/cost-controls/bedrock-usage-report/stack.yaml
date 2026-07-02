@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB Bedrock Daily Usage Report.
+  Deploys a Lambda that runs daily at 08:00 WIB (01:00 UTC),
+  queries Bedrock metrics across active sandbox accounts,
+  and emails a CSV report to the admin.
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: myisb
+
+  AccountsTableName:
+    Type: String
+    Description: DynamoDB table name for ISB sandbox accounts.
+
+  LeasesTableName:
+    Type: String
+    Description: DynamoDB table name for ISB leases.
+
+  ThrottleTableName:
+    Type: String
+    Default: ''
+    Description: DynamoDB table name for throttle events (optional).
+
+  AdminEmail:
+    Type: String
+    Default: andrian@eliteacademy.id
+    Description: Recipient email for the daily report.
+
+  SesSourceEmail:
+    Type: String
+    Default: helpdesk@eliteacademy.id
+    Description: Verified SES sender email.
+
+  SesRegion:
+    Type: String
+    Default: ap-southeast-1
+    Description: SES region.
+
+  MetricsRegions:
+    Type: String
+    Default: 'us-east-1,us-west-2,ap-southeast-1,ap-southeast-3'
+    Description: Comma-separated regions to query Bedrock metrics from.
+
+  ReportHandlerS3Bucket:
+    Type: String
+    Description: S3 bucket holding the report handler zip.
+
+  ReportHandlerS3Key:
+    Type: String
+    Description: S3 key for the report handler zip.
+
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 1 * * ? *)'
+    Description: EventBridge schedule (default 01:00 UTC = 08:00 WIB).
+
+Resources:
+
+  ReportHandlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-bedrock-usage-report'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: UsageReportPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDynamoDB
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AccountsTableName}'
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${LeasesTableName}'
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ThrottleTableName}'
+              - Sid: DecryptDynamoDBKms
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+              - Sid: ReadCloudWatchMetrics
+                Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:ListMetrics
+                Resource: '*'
+              - Sid: SendEmail
+                Effect: Allow
+                Action:
+                  - ses:SendRawEmail
+                  - ses:SendEmail
+                Resource: '*'
+
+  ReportHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-bedrock-usage-report'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt ReportHandlerRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          NAMESPACE: !Ref Namespace
+          ACCOUNTS_TABLE_NAME: !Ref AccountsTableName
+          LEASES_TABLE_NAME: !Ref LeasesTableName
+          THROTTLE_TABLE_NAME: !Ref ThrottleTableName
+          ADMIN_EMAIL: !Ref AdminEmail
+          SES_SOURCE_EMAIL: !Ref SesSourceEmail
+          SES_REGION: !Ref SesRegion
+          METRICS_REGIONS: !Ref MetricsRegions
+      Code:
+        S3Bucket: !Ref ReportHandlerS3Bucket
+        S3Key: !Ref ReportHandlerS3Key
+
+  DailyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'isb-${Namespace}-bedrock-daily-report'
+      Description: Trigger daily Bedrock usage report at 08:00 WIB (01:00 UTC)
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ReportHandler.Arn
+          Id: DailyReportTarget
+
+  SchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ReportHandler
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyScheduleRule.Arn
+
+Outputs:
+  ReportHandlerArn:
+    Value: !GetAtt ReportHandler.Arn
+    Export:
+      Name: !Sub 'isb-${Namespace}-bedrock-usage-report-arn'
+  ScheduleRuleArn:
+    Value: !GetAtt DailyScheduleRule.Arn

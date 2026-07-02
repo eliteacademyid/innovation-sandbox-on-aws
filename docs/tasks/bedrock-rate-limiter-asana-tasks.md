@@ -140,28 +140,34 @@ Commit: `663f05c` on `main`
 
 ---
 
-### Subtask 11: 🔲 [v2] Bedrock Model Router — Cost Optimization
+### Subtask 11: ✅ [DONE] Bedrock Model Router — Cost Optimization
 - **Assignee:** Andrian
 - **Due:** 2026-06-25
-- **Status:** Code complete, not yet deployed
-- **Estimated Time:** 2h to deploy + test
-- **Notes:** Complexity-based model routing to reduce Bedrock costs:
-  - Simple tasks → Amazon Nova Pro (cheaper)
-  - Complex tasks → Claude Sonnet (consolidated to 3 regions: us-east-1, us-west-2, eu-west-1)
-  - DynamoDB prompt cache with configurable TTL (default 24h)
-  - Heuristic classifier: prompt length, code blocks, reasoning indicators
+- **Status:** Complete (2026-07-02)
+- **Estimated Time:** 2h (actual: ~1h)
+- **Notes:** Deployed and smoke-tested:
+  - Simple → Amazon Nova Pro (us-east-1) ✓
+  - Complex → Claude Sonnet 4.6 via inference profile (us-east-1, us-west-2, eu-west-1) ✓
+  - DynamoDB prompt cache (24h TTL) ✓ — cache hit confirmed
   
-  Files: `infra/cost-controls/bedrock-model-router/`
-  Deploy: `./scripts/cost-controls/deploy-bedrock-model-router.sh`
+  **Issue found & fixed:** Claude Sonnet 4+ requires inference profile ID
+  (`us.anthropic.claude-sonnet-4-6`) — direct model ID invocation returns ValidationException.
+  
+  Stack: `isb-myisb-bedrock-model-router` (ap-southeast-1)
+  Commit: `cc3329b`
 
 ---
 
-### Subtask 12: 🔲 [v2] Update StackSet with SNS KMS fix
+### Subtask 12: ✅ [DONE] Update StackSet with SNS KMS fix
 - **Assignee:** Andrian
 - **Due:** 2026-06-20
-- **Status:** To Do
-- **Estimated Time:** 30m
-- **Notes:** The member-stack.yaml has been updated to remove KMS encryption from the throttle trigger SNS topic (required for CloudWatch alarm delivery). Need to update the StackSet to propagate this fix to all 100 sandbox accounts. Currently only account 210452151023 has been manually fixed.
+- **Status:** Complete (2026-07-02)
+- **Estimated Time:** 30m (actual: ~5m)
+- **Notes:** StackSet `isb-myisb-bedrock-rate-limit-member` updated successfully.
+  - Operation: `c92a8d8c-517f-436c-8b3e-c828abd06e09`
+  - Result: 100/100 accounts SUCCEEDED
+  - Changes propagated: removed KMS from SNS topic, fixed IAM ARN wildcard
+  - Re-subscribed SNS topics: 15 new + 85 existing = 100 total
 
 ---
 
@@ -169,10 +175,9 @@ Commit: `663f05c` on `main`
 
 | Category | Tasks | Time |
 |---|---|---|
-| ✅ Done | #1–#7 | ~8h (actual: ~7h including architecture refactor) |
-| Next up | #11 (model router deploy), #12 (StackSet update) | ~2.5h |
+| ✅ Done | #1–#7, #11, #12 | ~9h (actual: ~8h) |
 | v2 backlog | #8, #9, #10 | ~10h |
-| **Total remaining** | **5 tasks** | **~12.5h** |
+| **Total remaining** | **3 tasks** | **~10h** |
 
 ---
 
