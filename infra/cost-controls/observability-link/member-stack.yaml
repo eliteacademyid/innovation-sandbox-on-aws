@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB CloudWatch Cross-Account Observability — Source Link.
+  Deployed to each sandbox account via StackSet.
+  Creates an OAM link that shares CloudWatch metrics and logs
+  with the ISB hub account (monitoring account).
+
+Parameters:
+  SinkArn:
+    Type: String
+    Default: 'arn:aws:oam:ap-southeast-1:147826551593:sink/a2ce1346-b03b-4b14-8564-9091393141e6'
+    Description: ARN of the OAM sink in the hub (monitoring) account.
+
+  Namespace:
+    Type: String
+    Default: myisb
+
+Resources:
+  ObservabilityLink:
+    Type: AWS::Oam::Link
+    Properties:
+      LabelTemplate: '$AccountName'
+      ResourceTypes:
+        - 'AWS::CloudWatch::Metric'
+        - 'AWS::Logs::LogGroup'
+      SinkIdentifier: !Ref SinkArn
+      Tags:
+        Namespace: !Ref Namespace
+        ManagedBy: ISB
+
+Outputs:
+  LinkArn:
+    Value: !GetAtt ObservabilityLink.Arn
+  LinkId:
+    Value: !GetAtt ObservabilityLink.Label
