@@ -127,6 +127,98 @@ Resources:
       Principal: '*'
       FunctionUrlAuthType: AWS_IAM
 
+  # ─── API Gateway (student-facing, API key auth) ─────────────────────────────
+
+  RouterApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'isb-${Namespace}-model-router-api'
+      Description: Bedrock Model Router API for ISB students
+      ApiKeySourceType: HEADER
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  RouterApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RouterApi
+      ParentId: !GetAtt RouterApi.RootResourceId
+      PathPart: invoke
+
+  RouterApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RouterApi
+      ResourceId: !Ref RouterApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RouterHandler.Arn}/invocations'
+
+  RouterApiLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RouterHandler
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${RouterApi}/*'
+
+  RouterApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: RouterApiMethod
+    Properties:
+      RestApiId: !Ref RouterApi
+
+  RouterApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RouterApi
+      DeploymentId: !Ref RouterApiDeployment
+      StageName: v1
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 50
+          ThrottlingRateLimit: 20
+
+  RouterApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: RouterApiStage
+    Properties:
+      Name: !Sub 'isb-${Namespace}-student-router-key'
+      Description: API key for ISB students to access the model router
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref RouterApi
+          StageName: v1
+
+  RouterApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: RouterApiStage
+    Properties:
+      UsagePlanName: !Sub 'isb-${Namespace}-student-plan'
+      Description: Rate limits for student model router usage
+      ApiStages:
+        - ApiId: !Ref RouterApi
+          Stage: v1
+      Quota:
+        Limit: 1000
+        Period: DAY
+      Throttle:
+        BurstLimit: 20
+        RateLimit: 10
+
+  RouterApiUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref RouterApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref RouterApiUsagePlan
+
 Outputs:
   RouterHandlerArn:
     Value: !GetAtt RouterHandler.Arn
@@ -140,3 +232,10 @@ Outputs:
     Value: !Ref PromptCacheTable
     Export:
       Name: !Sub 'isb-${Namespace}-bedrock-prompt-cache-table'
+  RouterApiEndpoint:
+    Value: !Sub 'https://${RouterApi}.execute-api.${AWS::Region}.amazonaws.com/v1/invoke'
+    Export:
+      Name: !Sub 'isb-${Namespace}-model-router-api-endpoint'
+  RouterApiKeyId:
+    Value: !Ref RouterApiKey
+    Description: API Key ID (use aws apigateway get-api-key --api-key <id> --include-value to get the key value)

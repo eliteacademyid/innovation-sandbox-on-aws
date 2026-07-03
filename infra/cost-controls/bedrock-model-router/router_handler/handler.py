@@ -66,8 +66,40 @@ def lambda_handler(event: dict[str, Any], _ctx: Any) -> dict[str, Any]:
       "user_id": "...",         # optional, for cache scoping
       "force_model": "claude|nova"  # optional override
     }
+
+    Also supports API Gateway proxy format (body as JSON string).
     """
+    # Support API Gateway proxy integration
+    if "body" in event and "httpMethod" in event:
+        try:
+            body = json.loads(event.get("body") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            return _api_response(400, {"error": "Invalid JSON body"})
+        result = _process_request(body)
+        return _api_response(200, result)
+
+    # Direct Lambda invocation
+    return _process_request(event)
+
+
+def _api_response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
+    """Format response for API Gateway proxy integration."""
+    return {
+        "statusCode": status_code,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+        },
+        "body": json.dumps(body, ensure_ascii=False),
+    }
+
+
+def _process_request(event: dict[str, Any]) -> dict[str, Any]:
+    """Core request processing logic."""
     prompt = event.get("prompt", "")
+    if not prompt:
+        return {"error": "prompt is required", "status": "error"}
+
     system_prompt = event.get("system_prompt", "")
     max_tokens = event.get("max_tokens", 1024)
     temperature = event.get("temperature", 0.7)
