@@ -43,7 +43,7 @@ Platform sandbox AWS untuk program pendidikan CendekiAwan (Elite Academy). Membe
 ### SandboxAccount
 - Statuses: `Available` → `Active` → `CleanUp` → `Quarantine`
 - Fields: awsAccountId, email, name, driftAtLastScan, status
-- Current pool: 100 accounts (95 Available, 5 Active as of 2 Jul 2026)
+- Current pool: 100 accounts (95 Available, 5 Frozen as of 3 Jul 2026)
 
 ### Lease
 - Statuses: `Requested` → `Active` → `Frozen` → `Expired`/`Terminated`/`Denied`
@@ -77,7 +77,9 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - **SCP configs** (`config/scp/`) — 5 production policies
 
 - **CloudWatch Dashboard**: `ISB-Operations-myisb` (9 widgets: cleanup, blueprint, API, rate limiter, model router, Lambda errors, Step Functions, alarms)
+- **Discord Notifier**: `infra/cost-controls/slack-notifier/` — SNS → Lambda → Discord webhook (embeds with color-coded alerts)
 - **Cleanup Failure Alarm**: `isb-myisb-cleanup-failure-alarm` (>=3 CodeBuild failures/hour → SNS)
+- **Cleanup Duration Alarm**: `isb-myisb-cleanup-duration-alarm` (>30 min stuck → SNS)
 - **Cross-Account Observability**: OAM sink + 100 source links (StackSet: isb-myisb-observability-link)
 - **Cost Anomaly Detection**: 2 monitors + IMMEDIATE subscription ($5 threshold)
 - **Per-team Inference Profiles**: scripts for create + apply SCP policy per team
@@ -126,7 +128,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Deploy model router: `scripts/cost-controls/deploy-bedrock-model-router.sh`
 - Deploy usage report: `scripts/cost-controls/deploy-bedrock-usage-report.sh`
 - Deploy pool autoscaler: `MIN_AVAILABLE_THRESHOLD=10 DRY_RUN=false scripts/cost-controls/deploy-pool-autoscaler.sh`
-- Deploy Slack notifier: `SLACK_WEBHOOK_URL=... scripts/cost-controls/deploy-slack-notifier.sh`
+- Deploy Discord notifier: `DISCORD_WEBHOOK_URL=... scripts/cost-controls/deploy-slack-notifier.sh`
 - Program cost report: `scripts/cost-controls/program-cost-report.sh [--group <name>] [--format csv]`
 - Create team profiles: `scripts/cost-controls/create-team-inference-profiles.sh <team> <account>`
 - Apply profile policy: `scripts/cost-controls/apply-team-profile-policy.sh <team> <account>`
@@ -222,6 +224,7 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - Lease Extension scripts: committed 3 Jul 2026
 - Pool Auto-scaler: code committed 3 Jul 2026 (deploy when needed)
 - Multi-program cost report: committed 3 Jul 2026
+- Discord Notifier (refactored from Slack): committed 3 Jul 2026 (f4432a4, deploy pending webhook URL)
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
