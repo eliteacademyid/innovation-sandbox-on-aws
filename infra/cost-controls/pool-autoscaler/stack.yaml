@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB Pool Auto-Scaler.
+  Creates sandbox accounts when Available pool drops below threshold.
+  Disabled by default (set MinAvailableThreshold > 0 to enable).
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: myisb
+
+  AccountsTableName:
+    Type: String
+    Description: DynamoDB table for ISB sandbox accounts.
+
+  MinAvailableThreshold:
+    Type: Number
+    Default: 0
+    Description: Create accounts when Available < this. Set 0 to disable.
+
+  MaxPerExecution:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 20
+    Description: Max accounts to create per run.
+
+  MaxPoolSize:
+    Type: Number
+    Default: 150
+    Description: Hard cap on total pool size.
+
+  OrgRoleArn:
+    Type: String
+    Description: IAM role ARN in management account with organizations:CreateAccount.
+
+  NotificationTopicArn:
+    Type: String
+    Default: ''
+    Description: SNS topic for scale event notifications.
+
+  AccountEmailDomain:
+    Type: String
+    Default: eliteacademy.id
+
+  AccountNamePrefix:
+    Type: String
+    Default: isb-sandbox-
+
+  DryRun:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Set to 'false' to enable actual account creation.
+
+  AutoscalerHandlerS3Bucket:
+    Type: String
+
+  AutoscalerHandlerS3Key:
+    Type: String
+
+  ScheduleExpression:
+    Type: String
+    Default: 'rate(15 minutes)'
+    Description: How often to check pool level.
+
+Resources:
+
+  AutoscalerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-pool-autoscaler'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: AutoscalerPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadAccountsTable
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AccountsTableName}'
+              - Sid: DecryptDynamoDBKms
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+              - Sid: AssumeOrgRole
+                Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - !Ref OrgRoleArn
+              - Sid: PublishNotifications
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref NotificationTopicArn
+
+  AutoscalerHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-pool-autoscaler'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt AutoscalerRole.Arn
+      Timeout: 900
+      MemorySize: 256
+      Environment:
+        Variables:
+          NAMESPACE: !Ref Namespace
+          ACCOUNTS_TABLE_NAME: !Ref AccountsTableName
+          MIN_AVAILABLE_THRESHOLD: !Ref MinAvailableThreshold
+          MAX_PER_EXECUTION: !Ref MaxPerExecution
+          MAX_POOL_SIZE: !Ref MaxPoolSize
+          ORG_ROLE_ARN: !Ref OrgRoleArn
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
+          ACCOUNT_EMAIL_DOMAIN: !Ref AccountEmailDomain
+          ACCOUNT_NAME_PREFIX: !Ref AccountNamePrefix
+          DRY_RUN: !Ref DryRun
+      Code:
+        S3Bucket: !Ref AutoscalerHandlerS3Bucket
+        S3Key: !Ref AutoscalerHandlerS3Key
+
+  ScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'isb-${Namespace}-pool-autoscaler'
+      Description: Check pool level and auto-scale if needed
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt AutoscalerHandler.Arn
+          Id: AutoscalerTarget
+
+  SchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AutoscalerHandler
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduleRule.Arn
+
+Outputs:
+  AutoscalerArn:
+    Value: !GetAtt AutoscalerHandler.Arn
+  ScheduleRuleArn:
+    Value: !GetAtt ScheduleRule.Arn
