@@ -1,8 +1,65 @@
-# Cost Controls — Bedrock Rate Limiter (B-prime)
+# Cost Controls — ISB Custom Extensions
 
-Layered defense that catches runaway Bedrock usage in ISB sandbox accounts within ~2 minutes, so a single bad script can't blow past the lease budget like the May 22 Anonymous incident.
+Layered defense system for ISB sandbox accounts. Prevents cost overruns, provides visibility, and optimizes Bedrock model usage.
 
-See the full plan: [`docs/guides/BEDROCK-RATE-LIMITING-PLAN.md`](../../docs/guides/BEDROCK-RATE-LIMITING-PLAN.md).
+## Full Architecture
+
+```
+┌─────────────────────── Cost Protection Stack ───────────────────────────┐
+│                                                                          │
+│  Layer 1: ISB Budget Controls ($10/lease, freeze $45)    ← built-in     │
+│  Layer 2: Rate Limiter (burst: >100K TPM / >60 RPM)     ← SCP-based    │
+│  Layer 3: Cost Anomaly Detection (slow-burn: >$5)        ← AWS native   │
+│  Layer 4: Model Router (Nova Pro for simple tasks)       ← cost optim.  │
+│  Layer 5: Per-team Inference Profiles                    ← attribution  │
+│  Layer 6: Kill-switch (emergency freeze all)             ← manual       │
+│                                                                          │
+├─────────────────────── Observability ───────────────────────────────────┤
+│                                                                          │
+│  • CloudWatch Dashboard (ISB-Operations-myisb)                          │
+│  • Daily Usage Report (08:00 WIB, CSV email)                            │
+│  • Weekly Health Report (Monday 09:00 WIB, HTML email)                  │
+│  • Cleanup Failure Alarm (≥3 fails/hour)                                │
+│  • Cleanup Duration Alarm (>30 min stuck)                               │
+│  • Cross-Account Observability (OAM, 100 accounts)                      │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+## Stacks
+
+| Stack | Type | Schedule |
+|-------|------|----------|
+| `isb-myisb-bedrock-rate-limit` | Hub CFN + StackSet (100 accounts) | Event-driven |
+| `isb-myisb-bedrock-model-router` | Hub CFN + API Gateway | On-demand |
+| `isb-myisb-bedrock-usage-report` | Hub CFN + EventBridge | Daily 08:00 WIB |
+| `isb-myisb-weekly-health-report` | Hub CFN + EventBridge | Monday 09:00 WIB |
+| `isb-myisb-observability-link` | StackSet (100 accounts) | Always-on |
+
+## Deploy All
+
+```bash
+./scripts/cost-controls/deploy-all.sh
+```
+
+Or individually:
+
+```bash
+./scripts/cost-controls/deploy-bedrock-rate-limit.sh
+./scripts/cost-controls/deploy-bedrock-model-router.sh
+./scripts/cost-controls/deploy-bedrock-usage-report.sh
+# Weekly report deployed within deploy-all.sh
+```
+
+## Model Router API (for students)
+
+See [`docs/guides/MODEL-ROUTER-API-GUIDE.md`](../../docs/guides/MODEL-ROUTER-API-GUIDE.md).
+
+```bash
+curl -X POST "https://p8wxuvhiic.execute-api.ap-southeast-1.amazonaws.com/v1/invoke" \
+  -H "x-api-key: <key>" \
+  -d '{"prompt": "What is ML?"}'
+```
 
 ## Architecture (B-prime)
 
