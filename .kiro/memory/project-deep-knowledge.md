@@ -76,6 +76,12 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - **Welcome emails** via SES (send-welcome-emails.py)
 - **SCP configs** (`config/scp/`) — 5 production policies
 
+- **CloudWatch Dashboard**: `ISB-Operations-myisb` (9 widgets: cleanup, blueprint, API, rate limiter, model router, Lambda errors, Step Functions, alarms)
+- **Cleanup Failure Alarm**: `isb-myisb-cleanup-failure-alarm` (>=3 CodeBuild failures/hour → SNS)
+- **Cross-Account Observability**: OAM sink + 100 source links (StackSet: isb-myisb-observability-link)
+- **Cost Anomaly Detection**: 2 monitors + IMMEDIATE subscription ($5 threshold)
+- **Per-team Inference Profiles**: scripts for create + apply SCP policy per team
+
 ## Key URLs (Production)
 - Web App: https://aws-sandbox.eliteacademy.id (custom domain)
 - CloudFront: https://dd3kj1ggdvsy3.cloudfront.net
@@ -84,6 +90,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Identity Store ID: d-9667a833b5
 - SSO Instance ARN: arn:aws:sso:::instance/ssoins-821055714a3e49c5
 - Deploy Region: ap-southeast-1
+- CloudWatch Dashboard: https://ap-southeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-1#dashboards/dashboard/ISB-Operations-myisb
 
 ## .env Configuration
 - HUB_ACCOUNT_ID=147826551593
@@ -114,6 +121,9 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Kill switch: `scripts/cost-controls/kill-switch-bedrock.sh`
 - Subscribe new accounts: `scripts/cost-controls/subscribe-member-topics.sh`
 - Deploy model router: `scripts/cost-controls/deploy-bedrock-model-router.sh`
+- Create team profiles: `scripts/cost-controls/create-team-inference-profiles.sh <team> <account>`
+- Apply profile policy: `scripts/cost-controls/apply-team-profile-policy.sh <team> <account>`
+- Deploy usage report: `scripts/cost-controls/deploy-bedrock-usage-report.sh`
 - Destroy: `npm run destroy:all`
 
 ## Bedrock Rate Limiter Architecture (SCP-based, as of June 2026)
@@ -167,6 +177,7 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 13. SCP-based throttling is cleaner than IAM — managed from hub, no cross-account IAM needed in sandboxes
 14. StackSet updates need CAPABILITY_NAMED_IAM if template has named IAM roles
 15. After StackSet recreates SNS topics, must re-run subscribe-member-topics.sh
+16. Bedrock Application Inference Profiles need model access (Marketplace subscription) in the account where they are invoked. System inference profiles (us.anthropic.*) work without this.
 
 ## Frontend Tech
 - React 18 + Cloudscape Design System + Vite + TanStack React Query + React Router + SCSS Modules
@@ -195,6 +206,10 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - Rate Limiter SCP migration: deployed 18 Jun 2026, committed 2 Jul 2026
 - Model Router: deployed & tested 2 Jul 2026 (commit cc3329b)
 - Daily Usage Report: deployed 2 Jul 2026 (commit b9b83c7), SES pending verification
+- CloudWatch Dashboard + Alarm: created 2 Jul 2026
+- Cross-account observability: StackSet deployed 2 Jul 2026 (100/100 accounts)
+- Cost Anomaly Detection: configured 2 Jul 2026
+- Per-team Inference Profiles: scripts committed 2 Jul 2026 (f32a2eb)
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
@@ -203,8 +218,7 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - June 18, 2026: Rate limiter architecture change — IAM inline → SCP-based (SSO roles are UnmodifiableEntity)
 
 ## Remaining Backlog
-- Subtask #8: Cost Anomaly Detection — per-account on Bedrock service (3h)
-- Subtask #9: Per-team Application Inference Profiles — cleaner attribution (4h)
+All 12 subtasks complete. No remaining backlog.
 
 ## SES Setup Notes
 - Management account (862099794180) has verified: eliteacademy.id, belajar.eliteacademy.id, dev.eliteacademy.id, andrian@, helpdesk@
