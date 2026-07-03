@@ -1,0 +1,69 @@
+# ISB Program Onboarding Configuration
+#
+# Copy this file and customize for each new program/university.
+# Then run: ./scripts/user-management/full-university-onboarding.sh --config <this-file>
+#
+# See scripts/user-management/README.md for full documentation.
+
+# ─── Program Identity ─────────────────────────────────────────────────────────
+
+PROGRAM_NAME="cendekiawan-<university>-<cohort>"   # e.g. cendekiawan-mmu-finalist
+PROGRAM_DESCRIPTION="CendekiAwan <University> <Cohort> — <Description>"
+COST_REPORT_GROUP="cendekiawan-<university>-<cohort>"  # Must match PROGRAM_NAME for reporting
+
+# ─── Lease Template Settings ──────────────────────────────────────────────────
+
+LEASE_TEMPLATE_NAME="CendekiAwan <University> <Cohort>"
+MAX_BUDGET=50                  # USD per lease
+LEASE_DURATION_HOURS=720       # 30 days
+AUTO_APPROVE=true              # true = no admin approval needed
+BLUEPRINT_NAME="cendekiawan-genai-sandbox"  # Must exist in ISB blueprints
+
+# Budget thresholds (in USD)
+BUDGET_ALERT_THRESHOLD=40      # Send alert at this spend
+BUDGET_FREEZE_THRESHOLD=45     # Freeze account at this spend
+
+# Duration thresholds (in hours remaining)
+DURATION_ALERT_HOURS=24        # Alert when 24h remaining
+DURATION_FREEZE_HOURS=12       # Freeze when 12h remaining (optional, set 0 to disable)
+
+# ─── User Configuration ───────────────────────────────────────────────────────
+
+# CSV file with user data (columns: email, first_name, last_name, team_name)
+USERS_CSV="./scripts/user-management/<program>-teams.csv"
+
+# IDC Group for this program (auto-created if doesn't exist)
+IDC_GROUP_NAME="isb-${PROGRAM_NAME}"
+
+# ─── Team Configuration (if team-sharing enabled) ─────────────────────────────
+
+TEAM_SHARING=false             # true = multiple users share 1 account per team
+USERS_PER_TEAM=3               # Only relevant if TEAM_SHARING=true
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+SEND_WELCOME_EMAIL=true        # Send welcome email after onboarding
+WELCOME_TEMPLATE="./scripts/templates/welcome-sandbox.html"
+SES_SOURCE="helpdesk@eliteacademy.id"  # Must be verified in SES
+
+# ─── Bedrock-Specific ─────────────────────────────────────────────────────────
+
+# Rate limiter thresholds (override defaults for this program)
+# Leave empty to use global defaults (TPM=100000, RPM=60)
+CUSTOM_TPM_THRESHOLD=""
+CUSTOM_RPM_THRESHOLD=""
+
+# Inference profiles (per-team attribution)
+CREATE_INFERENCE_PROFILES=false  # true = create per-team profiles + restrict via SCP
+
+# ─── Example CSV Format ───────────────────────────────────────────────────────
+#
+# email,first_name,last_name,team_name
+# alice@student.mmu.edu.my,Alice,Wong,smartwaste
+# bob@student.mmu.edu.my,Bob,Tan,smartwaste
+# carol@student.mmu.edu.my,Carol,Lim,diabetes-control
+#
+# Notes:
+# - team_name is used for: team sandbox sharing, inference profiles, cost attribution
+# - If TEAM_SHARING=false, each user gets their own sandbox account
+# - If TEAM_SHARING=true, users with same team_name share one account
