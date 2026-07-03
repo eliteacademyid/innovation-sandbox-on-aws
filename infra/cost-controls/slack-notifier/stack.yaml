@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  ISB Slack Notifier — forwards SNS alerts to Slack webhook.
+  ISB Discord Notifier — forwards SNS alerts to Discord webhook.
   Subscribes to the admin notifications SNS topic.
 
 Parameters:
@@ -11,12 +11,12 @@ Parameters:
   WebhookUrl:
     Type: String
     NoEcho: true
-    Description: Slack incoming webhook URL.
+    Description: Discord webhook URL (from Server Settings → Integrations → Webhooks).
 
   Channel:
     Type: String
     Default: ''
-    Description: Optional Slack channel override.
+    Description: Unused (Discord webhook is channel-specific). Kept for compatibility.
 
   AdminTopicArn:
     Type: String

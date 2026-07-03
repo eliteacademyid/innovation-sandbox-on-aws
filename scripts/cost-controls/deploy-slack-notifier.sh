@@ -2,13 +2,13 @@
 # Copyright Elite Academy. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Deploy ISB Slack Notifier — forwards admin SNS alerts to Slack webhook.
+# Deploy ISB Discord Notifier — forwards admin SNS alerts to Discord webhook.
 #
 # Usage:
-#   SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T.../B.../xxx" \
+#   DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/1234.../abcXYZ" \
 #     ./scripts/cost-controls/deploy-slack-notifier.sh
 #
-# Or set SLACK_WEBHOOK_URL in .env
+# Or set DISCORD_WEBHOOK_URL in .env
 
 set -euo pipefail
 
@@ -21,7 +21,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 [[ -f "$ROOT/.env" ]] && { set -a; source "$ROOT/.env"; set +a; }
 
 HUB_ACCOUNT_ID="${HUB_ACCOUNT_ID:?HUB_ACCOUNT_ID must be set}"
-SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:?SLACK_WEBHOOK_URL must be set (Slack incoming webhook URL)}"
+SLACK_WEBHOOK_URL="${DISCORD_WEBHOOK_URL:-${SLACK_WEBHOOK_URL:-}}"
+if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+  echo "Error: DISCORD_WEBHOOK_URL must be set (Discord webhook URL)" >&2
+  echo "Get it from: Server Settings → Integrations → Webhooks → Copy URL" >&2
+  exit 1
+fi
 
 ARTIFACTS_BUCKET="isb-${NAMESPACE}-bedrock-rl-artifacts-${HUB_ACCOUNT_ID}"
 STACK_NAME="isb-${NAMESPACE}-slack-notifier"
