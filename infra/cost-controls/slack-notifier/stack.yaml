@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB Slack Notifier — forwards SNS alerts to Slack webhook.
+  Subscribes to the admin notifications SNS topic.
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: myisb
+
+  WebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Slack incoming webhook URL.
+
+  Channel:
+    Type: String
+    Default: ''
+    Description: Optional Slack channel override.
+
+  AdminTopicArn:
+    Type: String
+    Description: ARN of the existing admin notifications SNS topic.
+
+  NotifierHandlerS3Bucket:
+    Type: String
+    Description: S3 bucket holding the notifier handler zip.
+
+  NotifierHandlerS3Key:
+    Type: String
+    Description: S3 key for the notifier handler zip.
+
+Resources:
+
+  NotifierRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-slack-notifier'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  NotifierHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-slack-notifier'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt NotifierRole.Arn
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          WEBHOOK_URL: !Ref WebhookUrl
+          CHANNEL: !Ref Channel
+          NAMESPACE: !Ref Namespace
+      Code:
+        S3Bucket: !Ref NotifierHandlerS3Bucket
+        S3Key: !Ref NotifierHandlerS3Key
+
+  SnsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref NotifierHandler
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref AdminTopicArn
+
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AdminTopicArn
+      Protocol: lambda
+      Endpoint: !GetAtt NotifierHandler.Arn
+
+Outputs:
+  NotifierHandlerArn:
+    Value: !GetAtt NotifierHandler.Arn
+  SubscriptionArn:
+    Value: !Ref SnsSubscription
