@@ -110,20 +110,26 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - **Note:** All ISB DynamoDB tables are CMK-encrypted (key: arn:aws:kms:ap-southeast-1:147826551593:key/cbbd427b-c8d9-4c7d-b09e-47f195cf9116)
 
 ## Operational Commands
-- Deploy all: `npm run deploy:all`
+- Deploy all ISB: `npm run deploy:all`
 - Deploy compute: `npm run deploy:compute`
+- Deploy all cost-controls: `scripts/cost-controls/deploy-all.sh`
 - Add accounts: `scripts/account-management/create-sandbox-accounts.sh` + `register-accounts-to-pool.sh`
 - Add users: `scripts/user-management/create-users-and-assign-leases.sh users.csv TEMPLATE_ID`
 - University batch: `scripts/user-management/full-university-onboarding.sh`
+- Extend lease: `scripts/user-management/extend-lease.sh <lease-id> --hours 168`
+- Bulk extend: `scripts/user-management/bulk-extend-leases.sh --group <name> --hours 168`
 - Health check: `scripts/monitoring/health-check.sh`
 - List throttled: `scripts/cost-controls/list-throttled-accounts.sh`
 - Unfreeze: `scripts/cost-controls/unfreeze-bedrock.sh <account-id>`
 - Kill switch: `scripts/cost-controls/kill-switch-bedrock.sh`
 - Subscribe new accounts: `scripts/cost-controls/subscribe-member-topics.sh`
 - Deploy model router: `scripts/cost-controls/deploy-bedrock-model-router.sh`
+- Deploy usage report: `scripts/cost-controls/deploy-bedrock-usage-report.sh`
+- Deploy pool autoscaler: `MIN_AVAILABLE_THRESHOLD=10 DRY_RUN=false scripts/cost-controls/deploy-pool-autoscaler.sh`
+- Deploy Slack notifier: `SLACK_WEBHOOK_URL=... scripts/cost-controls/deploy-slack-notifier.sh`
+- Program cost report: `scripts/cost-controls/program-cost-report.sh [--group <name>] [--format csv]`
 - Create team profiles: `scripts/cost-controls/create-team-inference-profiles.sh <team> <account>`
 - Apply profile policy: `scripts/cost-controls/apply-team-profile-policy.sh <team> <account>`
-- Deploy usage report: `scripts/cost-controls/deploy-bedrock-usage-report.sh`
 - Destroy: `npm run destroy:all`
 
 ## Bedrock Rate Limiter Architecture (SCP-based, as of June 2026)
@@ -204,12 +210,18 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - v1.2.11: BudgetProgressBar fix + react-router CVE (June 2026)
 - v1.2.12: Security release — openssl (5 CVEs), golang, jq, python3-pip, vite, form-data (deployed 2 Jul 2026)
 - Rate Limiter SCP migration: deployed 18 Jun 2026, committed 2 Jul 2026
-- Model Router: deployed & tested 2 Jul 2026 (commit cc3329b)
-- Daily Usage Report: deployed 2 Jul 2026 (commit b9b83c7), SES pending verification
-- CloudWatch Dashboard + Alarm: created 2 Jul 2026
+- Model Router: deployed & tested 2 Jul 2026, API Gateway added 3 Jul 2026
+- Daily Usage Report: deployed 2 Jul 2026, cross-account fix 3 Jul 2026
+- Weekly Health Report: deployed 3 Jul 2026
+- CloudWatch Dashboard + Alarms: created 2 Jul 2026, duration alarm 3 Jul 2026
 - Cross-account observability: StackSet deployed 2 Jul 2026 (100/100 accounts)
 - Cost Anomaly Detection: configured 2 Jul 2026
 - Per-team Inference Profiles: scripts committed 2 Jul 2026 (f32a2eb)
+- Slack Notifier: code committed 3 Jul 2026 (deploy pending webhook URL)
+- DR Runbook: documented 3 Jul 2026
+- Lease Extension scripts: committed 3 Jul 2026
+- Pool Auto-scaler: code committed 3 Jul 2026 (deploy when needed)
+- Multi-program cost report: committed 3 Jul 2026
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
@@ -218,10 +230,30 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - June 18, 2026: Rate limiter architecture change — IAM inline → SCP-based (SSO roles are UnmodifiableEntity)
 
 ## Remaining Backlog
-All 12 subtasks complete. No remaining backlog.
+All improvement items complete. No remaining backlog.
+
+Phase 2 items (build when needed):
+- Multi-program Phase 2: per-program CloudWatch dashboards, isolated OUs, auto-onboarding from config template (5h)
+- Self-service student portal (8h) — when scale >100 concurrent
+- Full IaC: codify CloudWatch alarms + dashboard into CFN (2h)
 
 ## SES Setup Notes
 - Management account (862099794180) has verified: eliteacademy.id, belajar.eliteacademy.id, dev.eliteacademy.id, andrian@, helpdesk@
-- Hub account (147826551593) SES: identities created but pending verification in ap-southeast-1
+- Hub account (147826551593) SES: andrian@eliteacademy.id VERIFIED, domain eliteacademy.id PENDING (DKIM records need to be added in CLOUDFLARE, not Route53 — domain NS is lorna.ns.cloudflare.com)
 - Rate limiter uses SNS (not SES) for notifications — works without SES setup
-- Usage report uses SES — needs verified identity in hub account to send
+- Usage report currently sends from andrian@eliteacademy.id (verified individual email)
+
+## DKIM Records for Cloudflare (pending manual action)
+Add these CNAME records in Cloudflare (DNS only, no proxy):
+- vjffdy6qfg27jgi5ixfmmgxib46ephuo._domainkey → vjffdy6qfg27jgi5ixfmmgxib46ephuo.dkim.amazonses.com
+- vu4avw5el4voqq2fr5bzfvvufe5jmm77._domainkey → vu4avw5el4voqq2fr5bzfvvufe5jmm77.dkim.amazonses.com
+- tninozhjlpcumlzz2un64ek25yivjf3d._domainkey → tninozhjlpcumlzz2un64ek25yivjf3d.dkim.amazonses.com
+
+## Programs & Cost Data (as of 3 Jul 2026)
+| Program | Leases | Spent | Budget | Utilization |
+|---------|--------|-------|--------|-------------|
+| cendekiawan-apu-finalist | 19 | $271.01 | $950 | 28.5% |
+| cendekiawan-mmu-finalist | 5 | $32.89 | $250 | 13.2% |
+| cendekiawan-apu-tot | 27 | $3.00 | $189 | 1.6% |
+| cendekiawan-mmu-coaches | 15 | $0.63 | $75 | 0.8% |
+| **TOTAL** | **66** | **$307.52** | **$1,464** | **21.0%** |
