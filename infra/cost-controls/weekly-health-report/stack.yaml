@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ISB Weekly Pool Health Report.
+  Lambda + EventBridge schedule (every Monday 09:00 WIB / 02:00 UTC).
+  Sends HTML email with pool utilization, cleanup rate, lease activity.
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: myisb
+
+  AccountsTableName:
+    Type: String
+    Description: DynamoDB table for ISB sandbox accounts.
+
+  LeasesTableName:
+    Type: String
+    Description: DynamoDB table for ISB leases.
+
+  ThrottleTableName:
+    Type: String
+    Default: ''
+
+  CodeBuildProject:
+    Type: String
+    Default: ''
+    Description: CodeBuild project name for cleanup metrics.
+
+  AdminEmail:
+    Type: String
+    Default: andrian@eliteacademy.id
+
+  SesSourceEmail:
+    Type: String
+    Default: andrian@eliteacademy.id
+
+  SesRegion:
+    Type: String
+    Default: ap-southeast-1
+
+  ReportHandlerS3Bucket:
+    Type: String
+
+  ReportHandlerS3Key:
+    Type: String
+
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 2 ? * MON *)'
+    Description: EventBridge schedule (default Mon 02:00 UTC = 09:00 WIB).
+
+Resources:
+
+  WeeklyReportRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'isb-${Namespace}-weekly-health-report'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: WeeklyReportPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDynamoDB
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AccountsTableName}'
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${LeasesTableName}'
+                  - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ThrottleTableName}'
+              - Sid: DecryptDynamoDBKms
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+              - Sid: ReadCloudWatchMetrics
+                Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:GetMetricData
+                Resource: '*'
+              - Sid: SendEmail
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: '*'
+
+  WeeklyReportHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'isb-${Namespace}-weekly-health-report'
+      Runtime: python3.12
+      Handler: handler.lambda_handler
+      Role: !GetAtt WeeklyReportRole.Arn
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          NAMESPACE: !Ref Namespace
+          ACCOUNTS_TABLE_NAME: !Ref AccountsTableName
+          LEASES_TABLE_NAME: !Ref LeasesTableName
+          THROTTLE_TABLE_NAME: !Ref ThrottleTableName
+          CODEBUILD_PROJECT: !Ref CodeBuildProject
+          ADMIN_EMAIL: !Ref AdminEmail
+          SES_SOURCE_EMAIL: !Ref SesSourceEmail
+          SES_REGION: !Ref SesRegion
+      Code:
+        S3Bucket: !Ref ReportHandlerS3Bucket
+        S3Key: !Ref ReportHandlerS3Key
+
+  WeeklyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'isb-${Namespace}-weekly-health-report'
+      Description: Weekly pool health report (Monday 09:00 WIB / 02:00 UTC)
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WeeklyReportHandler.Arn
+          Id: WeeklyReportTarget
+
+  SchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WeeklyReportHandler
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WeeklyScheduleRule.Arn
+
+Outputs:
+  WeeklyReportHandlerArn:
+    Value: !GetAtt WeeklyReportHandler.Arn
+  ScheduleRuleArn:
+    Value: !GetAtt WeeklyScheduleRule.Arn
