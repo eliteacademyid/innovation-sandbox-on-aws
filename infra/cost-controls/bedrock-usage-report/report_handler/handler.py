@@ -54,6 +54,7 @@ MODEL_PRICING = {
 }
 
 dynamodb = boto3.resource("dynamodb")
+sts = boto3.client("sts")
 
 
 def lambda_handler(event: dict[str, Any], _ctx: Any) -> dict[str, Any]:
@@ -199,26 +200,35 @@ def _get_throttle_counts(since: datetime) -> dict[str, int]:
 
 
 def _query_bedrock_metrics(account_id: str, start: datetime, end: datetime) -> dict[str, int]:
-    """Query CloudWatch bedrock metrics for a specific account across all regions."""
+    """Query CloudWatch Bedrock metrics by assuming role into the sandbox account."""
     total_input = 0
     total_output = 0
     total_invocations = 0
 
+    # Assume role into sandbox account
+    try:
+        creds = sts.assume_role(
+            RoleArn=f"arn:aws:iam::{account_id}:role/OrganizationAccountAccessRole",
+            RoleSessionName="isb-usage-report",
+            DurationSeconds=900,
+        )["Credentials"]
+    except ClientError as exc:
+        LOG.warning("cannot assume role in account %s: %s", account_id, exc)
+        return {"input_tokens": 0, "output_tokens": 0, "invocations": 0}
+
     for region in METRICS_REGIONS:
         try:
-            cw = boto3.client("cloudwatch", region_name=region)
-            # Query InputTokenCount
-            total_input += _get_metric_sum(
-                cw, "AWS/Bedrock", "InputTokenCount", account_id, start, end
+            cw = boto3.client(
+                "cloudwatch",
+                region_name=region,
+                aws_access_key_id=creds["AccessKeyId"],
+                aws_secret_access_key=creds["SecretAccessKey"],
+                aws_session_token=creds["SessionToken"],
             )
-            # Query OutputTokenCount
-            total_output += _get_metric_sum(
-                cw, "AWS/Bedrock", "OutputTokenCount", account_id, start, end
-            )
-            # Query Invocations
-            total_invocations += _get_metric_sum(
-                cw, "AWS/Bedrock", "Invocations", account_id, start, end
-            )
+            # Query without AccountId dimension (metrics are local to the account)
+            total_input += _get_metric_sum(cw, "AWS/Bedrock", "InputTokenCount", start, end)
+            total_output += _get_metric_sum(cw, "AWS/Bedrock", "OutputTokenCount", start, end)
+            total_invocations += _get_metric_sum(cw, "AWS/Bedrock", "Invocations", start, end)
         except ClientError as exc:
             LOG.warning("metrics query failed region=%s account=%s: %s", region, account_id, exc)
 
@@ -230,14 +240,14 @@ def _query_bedrock_metrics(account_id: str, start: datetime, end: datetime) -> d
 
 
 def _get_metric_sum(
-    cw, namespace: str, metric_name: str, account_id: str,
+    cw, namespace: str, metric_name: str,
     start: datetime, end: datetime
 ) -> float:
-    """Get sum of a metric for 24h period."""
+    """Get sum of a metric for 24h period (no dimension filter — account-local query)."""
     resp = cw.get_metric_statistics(
         Namespace=namespace,
         MetricName=metric_name,
-        Dimensions=[{"Name": "AccountId", "Value": account_id}],
+        Dimensions=[],
         StartTime=start,
         EndTime=end,
         Period=86400,  # 24h in one datapoint

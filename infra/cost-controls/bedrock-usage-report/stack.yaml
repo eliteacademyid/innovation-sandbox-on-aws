@@ -102,6 +102,12 @@ Resources:
                   - cloudwatch:GetMetricData
                   - cloudwatch:ListMetrics
                 Resource: '*'
+              - Sid: AssumeRoleInSandboxAccounts
+                Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - 'arn:aws:iam::*:role/OrganizationAccountAccessRole'
               - Sid: SendEmail
                 Effect: Allow
                 Action:
