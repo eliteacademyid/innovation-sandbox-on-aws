@@ -5,7 +5,7 @@
 - **Version**: 1.2.12 (deployed 2 Jul 2026)
 - **Organization**: Elitery / Elite Academy (CendekiAwan program)
 - **License**: Apache-2.0
-- **Path**: /Users/andrianmaulana/elitery/projects/innovation-sandbox-on-aws
+- **Path**: /Users/andrianmaulana/elitery/eta/clients/aws-cendekiawan/innovation-sandbox-on-aws
 - **Runtime**: Node 22, TypeScript, AWS CDK v2, Vite (frontend)
 - **Test**: Vitest + aws-sdk-client-mock
 - **Monorepo**: npm workspaces
@@ -43,7 +43,7 @@ Platform sandbox AWS untuk program pendidikan CendekiAwan (Elite Academy). Membe
 ### SandboxAccount
 - Statuses: `Available` → `Active` → `CleanUp` → `Quarantine`
 - Fields: awsAccountId, email, name, driftAtLastScan, status
-- Current pool: 100 accounts (95 Available, 5 Frozen as of 3 Jul 2026)
+- Current pool: 100 accounts (all Available/Expired as of 6 Jul 2026, 0 active leases)
 
 ### Lease
 - Statuses: `Requested` → `Active` → `Frozen` → `Expired`/`Terminated`/`Denied`
@@ -81,7 +81,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - **Cleanup Failure Alarm**: `isb-myisb-cleanup-failure-alarm` (>=3 CodeBuild failures/hour → SNS)
 - **Cleanup Duration Alarm**: `isb-myisb-cleanup-duration-alarm` (>30 min stuck → SNS)
 - **Cross-Account Observability**: OAM sink + 100 source links (StackSet: isb-myisb-observability-link)
-- **Cost Anomaly Detection**: 2 monitors + IMMEDIATE subscription ($5 threshold)
+- **Cost Anomaly Detection**: 3 monitors (Bedrock custom, Per-Account, Per-Service) + 2 subscriptions (IMMEDIATE $5 → SNS → andrian@, DAILY → helpdesk@) — all confirmed 8 Jul 2026
 - **Per-team Inference Profiles**: scripts for create + apply SCP policy per team
 
 ## Key URLs (Production)
@@ -225,6 +225,7 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - Pool Auto-scaler: code committed 3 Jul 2026 (deploy when needed)
 - Multi-program cost report: committed 3 Jul 2026
 - Discord Notifier (refactored from Slack): committed 3 Jul 2026 (f4432a4, deploy pending webhook URL)
+- **Fase 5 Manual Actions Closing (8 Jul 2026):** SES domain verified, SNS cost anomaly confirmed, Discord webhook On Hold
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
@@ -233,7 +234,10 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - June 18, 2026: Rate limiter architecture change — IAM inline → SCP-based (SSO roles are UnmodifiableEntity)
 
 ## Remaining Backlog
-All improvement items complete. No remaining backlog.
+**PROJECT COMPLETE (8 Jul 2026)** — 42 subtasks total, 41 selesai, 1 On Hold (Discord webhook).
+
+Only On Hold item:
+- Discord webhook notifier — code ready (commit `bd5731c`), tinggal aktivasi kapan dibutuhkan
 
 Phase 2 items (build when needed):
 - Multi-program Phase 2: per-program CloudWatch dashboards, isolated OUs, auto-onboarding from config template (5h)
@@ -242,21 +246,49 @@ Phase 2 items (build when needed):
 
 ## SES Setup Notes
 - Management account (862099794180) has verified: eliteacademy.id, belajar.eliteacademy.id, dev.eliteacademy.id, andrian@, helpdesk@
-- Hub account (147826551593) SES: andrian@eliteacademy.id VERIFIED, domain eliteacademy.id PENDING (DKIM records need to be added in CLOUDFLARE, not Route53 — domain NS is lorna.ns.cloudflare.com)
+- Hub account (147826551593) SES: andrian@eliteacademy.id VERIFIED, domain eliteacademy.id **VERIFIED** (DKIM SUCCESS, RSA 2048-bit, signing enabled — confirmed 8 Jul 2026)
 - Rate limiter uses SNS (not SES) for notifications — works without SES setup
-- Usage report currently sends from andrian@eliteacademy.id (verified individual email)
+- Usage report can now send from any @eliteacademy.id address (domain verified)
 
-## DKIM Records for Cloudflare (pending manual action)
-Add these CNAME records in Cloudflare (DNS only, no proxy):
-- vjffdy6qfg27jgi5ixfmmgxib46ephuo._domainkey → vjffdy6qfg27jgi5ixfmmgxib46ephuo.dkim.amazonses.com
-- vu4avw5el4voqq2fr5bzfvvufe5jmm77._domainkey → vu4avw5el4voqq2fr5bzfvvufe5jmm77.dkim.amazonses.com
-- tninozhjlpcumlzz2un64ek25yivjf3d._domainkey → tninozhjlpcumlzz2un64ek25yivjf3d.dkim.amazonses.com
+## Cloudflare (eliteacademy.id DNS)
+- NS: lorna.ns.cloudflare.com, pete.ns.cloudflare.com
+- Zone ID: 84959744d4fad2c220e021eeefdb9929
+- Account ID: e2cffbc74b298f801d8baa31a0a7d387
+- API Token: in .env (CLOUDFLARE_API_TOKEN)
+- DKIM records added: 3 Jul 2026 (3 CNAMEs for SES ap-southeast-1)
+- Note: Route53 hosted zone exists but is NOT authoritative (NS on Cloudflare)
 
-## Programs & Cost Data (as of 3 Jul 2026)
-| Program | Leases | Spent | Budget | Utilization |
-|---------|--------|-------|--------|-------------|
-| cendekiawan-apu-finalist | 19 | $271.01 | $950 | 28.5% |
-| cendekiawan-mmu-finalist | 5 | $32.89 | $250 | 13.2% |
-| cendekiawan-apu-tot | 27 | $3.00 | $189 | 1.6% |
-| cendekiawan-mmu-coaches | 15 | $0.63 | $75 | 0.8% |
-| **TOTAL** | **66** | **$307.52** | **$1,464** | **21.0%** |
+## DKIM Records (COMPLETED 8 Jul 2026)
+All 3 CNAME records confirmed in Cloudflare (DNS only, no proxy, TTL 300):
+- vjffdy6qfg27jgi5ixfmmgxib46ephuo._domainkey → vjffdy6qfg27jgi5ixfmmgxib46ephuo.dkim.amazonses.com ✅
+- vu4avw5el4voqq2fr5bzfvvufe5jmm77._domainkey → vu4avw5el4voqq2fr5bzfvvufe5jmm77.dkim.amazonses.com ✅
+- tninozhjlpcumlzz2un64ek25yivjf3d._domainkey → tninozhjlpcumlzz2un64ek25yivjf3d.dkim.amazonses.com ✅
+SES Status: VERIFIED, DKIM signing ACTIVE (RSA_2048_BIT)
+
+## Programs & Cost Data (as of 6 Jul 2026)
+| Program | Leases | Status | Spent | Budget | Utilization |
+|---------|--------|--------|-------|--------|-------------|
+| cendekiawan-apu-finalist | 19 | All Expired | $271.01 | $950 | 28.5% |
+| cendekiawan-mmu-finalist | 5 | All Expired | $32.89 | $250 | 13.2% |
+| cendekiawan-apu-tot | 27 | All Expired | $3.00 | $189 | 1.6% |
+| cendekiawan-mmu-coaches | 15 | All Expired | $0.63 | $75 | 0.8% |
+| **TOTAL** | **66** | | **$307.52** | **$1,464** | **21.0%** |
+
+## MMU Finalist Detail (expired 3 Jul 2026)
+| Team | User | Spent | Budget |
+|------|------|-------|--------|
+| virtual-science-lab | kok.chee.yuan@student.mmu.edu.my | $13.23 | $50 |
+| business-launchpad | lim.xin.yi@student.mmu.edu.my | $10.29 | $50 |
+| dewan-ai | WONG.SHIN.CHEN1@student.mmu.edu.my | $7.09 | $50 |
+| smartwaste | TAN.YIN.WUN@student.mmu.edu.my | $1.34 | $50 |
+| diabetes-control | ESSALEM.SIDI.MOHAMED@student.mmu.edu.my | $0.93 | $50 |
+
+## Infrastructure Optimization Project Summary (8 Jun – 8 Jul 2026)
+- **Duration**: ~1 month (5 phases)
+- **Scope**: 42 subtasks total, 41 completed, 1 On Hold
+- **Trigger**: Anonymous budget overrun incident ($1,316/day on 22 May 2026)
+- **Key architectural decision**: IAM inline → SCP-based throttling (18 Jun, after discovering UnmodifiableEntity bug)
+- **Sprint efficiency**: Day 2 (3 Jul) delivered 3.5× faster than estimates (19.5h est → 5.5h actual)
+- **Cost protection layers**: 8 (SCP throttle, budget freeze, kill-switch, anomaly detection, rate limiter, model router, per-team profiles, observability)
+- **Observability components**: 6 (dashboard, alarms, OAM cross-account, cost anomaly, usage report, health report)
+- **Final platform state**: 100 accounts, 20+ automation scripts, 0 backlog, ready for next cohort
