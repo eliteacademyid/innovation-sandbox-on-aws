@@ -133,6 +133,8 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Create team profiles: `scripts/cost-controls/create-team-inference-profiles.sh <team> <account>`
 - Apply profile policy: `scripts/cost-controls/apply-team-profile-policy.sh <team> <account>`
 - Destroy: `npm run destroy:all`
+- Cleanup validator: `aws lambda invoke --function-name isb-myisb-cleanup-validator-function --payload '{}' /tmp/out.json --region ap-southeast-1 --profile eta-isb-andrian`
+- Deploy cleanup validator: `infra/cost-controls/cleanup-validator/deploy.sh`
 
 ## Bedrock Rate Limiter Architecture (SCP-based, as of June 2026)
 ```
@@ -186,6 +188,11 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 14. StackSet updates need CAPABILITY_NAMED_IAM if template has named IAM roles
 15. After StackSet recreates SNS topics, must re-run subscribe-member-topics.sh
 16. Bedrock Application Inference Profiles need model access (Marketplace subscription) in the account where they are invoked. System inference profiles (us.anthropic.*) work without this.
+17. aws-nuke does NOT support BedrockImportedModel resource type — silent cost leak, cleanup reports success
+18. ap-southeast-5 causes Nuke exit code 1 — must be excluded from isbManagedRegions until aws-nuke adds support
+19. To bypass WriteProtection SCP: move account to org root (r-e21c) temporarily, then move back after cleanup
+20. ISB lease DDB records retain full data (userEmail, costReportGroup, totalCostAccrued) even after TTL field ages — useful for forensics
+21. Baseline CW alarm cost across 100 accounts = ~$28.50/mo (rate-limiter StackSet) — acceptable operational cost
 
 ## Frontend Tech
 - React 18 + Cloudscape Design System + Vite + TanStack React Query + React Router + SCSS Modules
@@ -226,15 +233,20 @@ Recovery: EventBridge every 5min → Recovery Lambda → detaches + deletes SCP
 - Multi-program cost report: committed 3 Jul 2026
 - Discord Notifier (refactored from Slack): committed 3 Jul 2026 (f4432a4, deploy pending webhook URL)
 - **Fase 5 Manual Actions Closing (8 Jul 2026):** SES domain verified, SNS cost anomaly confirmed, Discord webhook On Hold
+- **Stranded Resource Cleanup (11 Jul 2026):** Manual cleanup 5 accounts (ELB, RDS, EC2, WAF, Bedrock models in ap-southeast-5 + us-east-1)
+- **Nuke Region Fix (11 Jul 2026):** Removed ap-southeast-5 from isbManagedRegions, added us-west-2 (SSM param v6)
+- **Post-Cleanup Validator (11 Jul 2026):** Lambda deployed (isb-myisb-cleanup-validator), daily 09:00 WIB, checks CE for leaks
+- **GitHub Issues (11 Jul 2026):** Submitted #160 (Bedrock model cleanup), commented #148 (ap-southeast-5), commented #153 (SCP implementation)
 
 ## Incident History
 - May 22, 2026: Anonymous budget overrun (documented in docs/incidents/)
 - 87 cleanup failures from non-existent CloudTrail trail (fixed via nuke config filter)
 - 7/10 accounts quarantined on first registration (OU drift — fixed by moving to Entry OU)
 - June 18, 2026: Rate limiter architecture change — IAM inline → SCP-based (SSO roles are UnmodifiableEntity)
+- Jul 11, 2026: Discovered 5 accounts with stranded resources ($3.60/day leak). Root causes: ap-southeast-5 Nuke gap (2 accounts), Bedrock imported models (1), WAF Global (1), EC2 not terminated (1). All cleaned manually. Validator Lambda deployed to prevent recurrence.
 
 ## Remaining Backlog
-**PROJECT COMPLETE (8 Jul 2026)** — 42 subtasks total, 41 selesai, 1 On Hold (Discord webhook).
+**PROJECT COMPLETE (11 Jul 2026)** — All operational issues resolved, platform fully clean.
 
 Only On Hold item:
 - Discord webhook notifier — code ready (commit `bd5731c`), tinggal aktivasi kapan dibutuhkan
@@ -243,6 +255,38 @@ Phase 2 items (build when needed):
 - Multi-program Phase 2: per-program CloudWatch dashboards, isolated OUs, auto-onboarding from config template (5h)
 - Self-service student portal (8h) — when scale >100 concurrent
 - Full IaC: codify CloudWatch alarms + dashboard into CFN (2h)
+
+## Nuke Region Config (as of 11 Jul 2026)
+- SSM Parameter: `InnovationSandbox_myisb_AccountPool_Configuration` (version 6)
+- `isbManagedRegions`: `us-east-1,us-west-2,ap-southeast-3,ap-southeast-1`
+- **ap-southeast-5 EXCLUDED** — aws-nuke exits code 1, cannot handle this region
+- Students CAN still create resources in ap-southeast-5 (SCP allows it during lease), but cleanup will skip it
+- Post-cleanup validator Lambda catches any orphans daily
+
+## Post-Cleanup Validator Lambda
+- Function: `isb-myisb-cleanup-validator-function`
+- Stack: `isb-myisb-cleanup-validator` (ap-southeast-1)
+- Schedule: daily 09:00 WIB (cron 0 2 * * ? *)
+- Logic: Scans all "Available" accounts via Cost Explorer, alerts SNS if daily cost > $0.05
+- S3: `s3://isb-myisb-artifacts-147826551593/cleanup-validator/lambda.zip`
+- Deploy: `infra/cost-controls/cleanup-validator/deploy.sh`
+- First validated: 11 Jul 2026 — 100/100 accounts clean
+
+## Manual Cleanup Procedure (for Nuke-resistant resources)
+1. Move account from Available OU (`ou-e21c-n5rlhrsj`) to org root (`r-e21c`) — bypasses WriteProtection SCP
+2. Wait 10-15 seconds for SCP propagation
+3. Assume `OrganizationAccountAccessRole` via eta-andrian profile
+4. Delete resources manually (ELB, RDS, EC2, Bedrock models, WAF, etc.)
+5. Move account back to Available OU
+6. Update DynamoDB status to "Available" if stuck in "CleanUp"
+
+## GitHub Issues Submitted
+- **#148** (bug, by us): Nuke cleanup misses resources in unlisted regions — OPEN, commented 11 Jul with ap-southeast-5 evidence
+- **#153** (feature, by us): Built-in Bedrock usage limiting — OPEN, commented 11 Jul with our SCP implementation details
+- **#160** (bug, by us): AWS Nuke does not clean Bedrock Imported Models — OPEN, submitted 11 Jul 2026
+
+## AWS Support Cases
+- **178109388300002**: Billing adjustment $573.62 for unused ElastiCache cache.r5.large (Sep 2025, ap-southeast-3). Status: Pending Amazon Action — escalated to Financial team 12 Jul 2026. Follow-up to case 175758980800758.
 
 ## SES Setup Notes
 - Management account (862099794180) has verified: eliteacademy.id, belajar.eliteacademy.id, dev.eliteacademy.id, andrian@, helpdesk@
@@ -283,12 +327,14 @@ SES Status: VERIFIED, DKIM signing ACTIVE (RSA_2048_BIT)
 | smartwaste | TAN.YIN.WUN@student.mmu.edu.my | $1.34 | $50 |
 | diabetes-control | ESSALEM.SIDI.MOHAMED@student.mmu.edu.my | $0.93 | $50 |
 
-## Infrastructure Optimization Project Summary (8 Jun – 8 Jul 2026)
-- **Duration**: ~1 month (5 phases)
-- **Scope**: 42 subtasks total, 41 completed, 1 On Hold
+## Infrastructure Optimization Project Summary (8 Jun – 11 Jul 2026)
+- **Duration**: ~5 weeks (5 phases + post-audit)
+- **Scope**: 42 subtasks + post-audit remediation (stranded resources)
 - **Trigger**: Anonymous budget overrun incident ($1,316/day on 22 May 2026)
 - **Key architectural decision**: IAM inline → SCP-based throttling (18 Jun, after discovering UnmodifiableEntity bug)
 - **Sprint efficiency**: Day 2 (3 Jul) delivered 3.5× faster than estimates (19.5h est → 5.5h actual)
 - **Cost protection layers**: 8 (SCP throttle, budget freeze, kill-switch, anomaly detection, rate limiter, model router, per-team profiles, observability)
-- **Observability components**: 6 (dashboard, alarms, OAM cross-account, cost anomaly, usage report, health report)
-- **Final platform state**: 100 accounts, 20+ automation scripts, 0 backlog, ready for next cohort
+- **Observability components**: 7 (dashboard, alarms, OAM cross-account, cost anomaly, usage report, health report, cleanup validator)
+- **Post-audit savings** (11 Jul): $38/mo recovered from stranded resources
+- **Final platform state**: 100/100 accounts Available, 0 cost leaks, 20+ automation scripts, daily automated validation
+- **GitHub contributions**: 3 issues submitted to aws-solutions/innovation-sandbox-on-aws (#148, #153, #160)
