@@ -35,7 +35,7 @@ Resources:
   NotifierRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'isb-${Namespace}-slack-notifier'
+      RoleName: !Sub 'isb-${Namespace}-discord-notifier'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -49,7 +49,7 @@ Resources:
   NotifierHandler:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub 'isb-${Namespace}-slack-notifier'
+      FunctionName: !Sub 'isb-${Namespace}-discord-notifier'
       Runtime: python3.12
       Handler: handler.lambda_handler
       Role: !GetAtt NotifierRole.Arn

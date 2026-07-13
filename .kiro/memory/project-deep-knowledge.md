@@ -77,7 +77,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - **SCP configs** (`config/scp/`) — 5 production policies
 
 - **CloudWatch Dashboard**: `ISB-Operations-myisb` (9 widgets: cleanup, blueprint, API, rate limiter, model router, Lambda errors, Step Functions, alarms)
-- **Discord Notifier**: `infra/cost-controls/slack-notifier/` — SNS → Lambda → Discord webhook (embeds with color-coded alerts)
+- **Discord Notifier**: `infra/cost-controls/discord-notifier/` — SNS → Lambda → Discord webhook (embeds with color-coded alerts)
 - **Cleanup Failure Alarm**: `isb-myisb-cleanup-failure-alarm` (>=3 CodeBuild failures/hour → SNS)
 - **Cleanup Duration Alarm**: `isb-myisb-cleanup-duration-alarm` (>30 min stuck → SNS)
 - **Cross-Account Observability**: OAM sink + 100 source links (StackSet: isb-myisb-observability-link)
@@ -128,7 +128,7 @@ Key events: LeaseRequestedEvent, LeaseApprovedEvent, LeaseFrozenEvent, LeaseTerm
 - Deploy model router: `scripts/cost-controls/deploy-bedrock-model-router.sh`
 - Deploy usage report: `scripts/cost-controls/deploy-bedrock-usage-report.sh`
 - Deploy pool autoscaler: `MIN_AVAILABLE_THRESHOLD=10 DRY_RUN=false scripts/cost-controls/deploy-pool-autoscaler.sh`
-- Deploy Discord notifier: `DISCORD_WEBHOOK_URL=... scripts/cost-controls/deploy-slack-notifier.sh`
+- Deploy Discord notifier: `DISCORD_WEBHOOK_URL=... scripts/cost-controls/deploy-discord-notifier.sh`
 - Program cost report: `scripts/cost-controls/program-cost-report.sh [--group <name>] [--format csv]`
 - Create team profiles: `scripts/cost-controls/create-team-inference-profiles.sh <team> <account>`
 - Apply profile policy: `scripts/cost-controls/apply-team-profile-policy.sh <team> <account>`
