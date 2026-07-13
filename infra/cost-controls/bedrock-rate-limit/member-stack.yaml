@@ -3,9 +3,9 @@ Description: >
   ISB Bedrock Rate Limiter - Member Account Resources.
   Deployed via StackSet to every ISB sandbox account.
   Creates CloudWatch alarms on Bedrock TPM/RPM and an SNS topic that the hub
-  account's throttle Lambda subscribes to. Also creates a cross-account IAM
-  role that allows the hub Lambda to attach a deny-Bedrock inline policy to
-  the SSO IsbUsers role in this account.
+  account's throttle Lambda subscribes to. Throttling itself is enforced by
+  an SCP attached from the management account (see infra/cost-controls/
+  bedrock-rate-limit/throttle_handler and recovery_handler).
 
 Parameters:
   HubAccountId:
@@ -136,62 +136,9 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
 
-  BedrockThrottleRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'isb-${Namespace}-bedrock-throttle-role'
-      Description: Allows the hub-account Bedrock throttle Lambda to attach/detach the deny-Bedrock inline policy on the SSO IsbUsers role in this account.
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub 'arn:${AWS::Partition}:iam::${HubAccountId}:root'
-            Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                aws:PrincipalArn:
-                  - !Sub 'arn:${AWS::Partition}:iam::${HubAccountId}:role/isb-${Namespace}-bedrock-throttle-handler'
-                  - !Sub 'arn:${AWS::Partition}:iam::${HubAccountId}:role/isb-${Namespace}-bedrock-recovery-handler'
-      Policies:
-        - PolicyName: ManageIsbUsersDenyPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: ListSsoRoles
-                Effect: Allow
-                Action:
-                  - iam:ListRoles
-                  - iam:GetRole
-                Resource: '*'
-                # NOTE: The org SCP denies iam:ListRoles with PathPrefix=/aws-reserved/...
-                # Our Lambda calls ListRoles without PathPrefix and filters client-side.
-              - Sid: ManageDenyPolicyOnIsbUsersRole
-                Effect: Allow
-                Action:
-                  - iam:PutRolePolicy
-                  - iam:DeleteRolePolicy
-                  - iam:GetRolePolicy
-                Resource:
-                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-reserved/sso.amazonaws.com/*/AWSReservedSSO_${Namespace}_IsbUsers*'
-                Condition:
-                  StringEquals:
-                    iam:PolicyName: BedrockRateLimitDeny
-              - Sid: ReadAccountTags
-                Effect: Allow
-                Action:
-                  - organizations:DescribeAccount
-                  - organizations:ListTagsForResource
-                Resource: '*'
-
 Outputs:
   ThrottleTriggerTopicArn:
     Description: SNS topic ARN that the hub Lambda must subscribe to.
     Value: !Ref ThrottleTriggerTopic
     Export:
       Name: !Sub 'isb-${Namespace}-bedrock-throttle-topic-arn'
-  BedrockThrottleRoleArn:
-    Description: Cross-account role for hub Lambda to assume.
-    Value: !GetAtt BedrockThrottleRole.Arn
-    Export:
-      Name: !Sub 'isb-${Namespace}-bedrock-throttle-role-arn'

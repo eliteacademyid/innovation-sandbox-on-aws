@@ -17,12 +17,9 @@ const REGION = process.env.AWS_REGION || "ap-southeast-1";
 const ACCOUNT_TABLE = process.env.ACCOUNT_TABLE;
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN;
 const HUB_ACCOUNT_ID = process.env.HUB_ACCOUNT_ID;
-const MGMT_ACCOUNT_ID = process.env.MGMT_ACCOUNT_ID;
 
-// Baseline cost threshold per account per day (CloudWatch alarms from rate-limiter StackSet)
-// Anything above this indicates stranded resources
-const BASELINE_DAILY_THRESHOLD = 0.02; // $0.02/day = only CW alarm cost
-const ALERT_DAILY_THRESHOLD = 0.05; // Alert if daily cost > $0.05 (clearly not just CW)
+// Alert if daily cost > $0.05 (clearly more than just baseline CW alarm cost)
+const ALERT_DAILY_THRESHOLD = 0.05;
 
 const dynamodb = new DynamoDBClient({ region: REGION });
 const costExplorer = new CostExplorerClient({ region: "us-east-1" }); // CE is always us-east-1

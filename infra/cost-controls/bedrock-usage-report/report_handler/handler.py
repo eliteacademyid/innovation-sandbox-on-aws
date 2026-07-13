@@ -44,14 +44,11 @@ SES_SOURCE_EMAIL = os.environ["SES_SOURCE_EMAIL"]
 SES_REGION = os.environ.get("SES_REGION", "ap-southeast-1")
 METRICS_REGIONS = os.environ.get("METRICS_REGIONS", "us-east-1,ap-southeast-1").split(",")
 
-# Approximate cost per 1K tokens (USD) — on-demand pricing
-MODEL_PRICING = {
-    "claude-sonnet": {"input": 0.003, "output": 0.015},
-    "claude-haiku": {"input": 0.00025, "output": 0.00125},
-    "nova-pro": {"input": 0.0008, "output": 0.0032},
-    "nova-lite": {"input": 0.00006, "output": 0.00024},
-    "default": {"input": 0.001, "output": 0.005},
-}
+# CloudWatch Bedrock metrics here are queried account-wide with no ModelId
+# dimension (see _query_bedrock_metrics), so token counts can't be attributed
+# to a specific model. Cost is therefore always a blended estimate using this
+# single rate, not real per-model pricing.
+BLENDED_PRICING = {"input": 0.001, "output": 0.005}  # USD per 1K tokens
 
 dynamodb = boto3.resource("dynamodb")
 sts = boto3.client("sts")
@@ -146,10 +143,9 @@ def _get_active_accounts() -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     scan_kwargs: dict[str, Any] = {
         "FilterExpression": "#s = :active",
-        "ExpressionAttributeNames": {"#s": "status"},
+        "ExpressionAttributeNames": {"#s": "status", "#n": "name"},
         "ExpressionAttributeValues": {":active": "Active"},
         "ProjectionExpression": "awsAccountId, #s, #n, email",
-        "ExpressionAttributeNames": {"#s": "status", "#n": "name"},
     }
     while True:
         resp = table.scan(**scan_kwargs)
@@ -259,9 +255,8 @@ def _get_metric_sum(
 
 def _estimate_cost(metrics: dict[str, int]) -> float:
     """Estimate cost based on token counts (using blended average pricing)."""
-    pricing = MODEL_PRICING["default"]
-    input_cost = (metrics["input_tokens"] / 1000) * pricing["input"]
-    output_cost = (metrics["output_tokens"] / 1000) * pricing["output"]
+    input_cost = (metrics["input_tokens"] / 1000) * BLENDED_PRICING["input"]
+    output_cost = (metrics["output_tokens"] / 1000) * BLENDED_PRICING["output"]
     return input_cost + output_cost
 
 

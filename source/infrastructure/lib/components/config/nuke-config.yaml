@@ -57,6 +57,8 @@ accounts:
           value: aws-controltower-*
         - type: exact
           value: all-org-cloud-trail
+        - type: exact
+          value: trail-yow # non-existent trail Nuke otherwise errors on; see docs/LESSONS-LEARNED.md #1 (87 cleanup failures, May 2026)
       CloudWatchEventsRule:
         - property: Name
           type: glob

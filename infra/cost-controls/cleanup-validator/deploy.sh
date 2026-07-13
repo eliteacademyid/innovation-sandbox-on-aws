@@ -20,7 +20,6 @@ FUNCTION_NAME="${STACK_NAME}-function"
 ACCOUNT_TABLE="${ACCOUNT_TABLE:-InnovationSandbox-Data-SandboxAccountTableEFB9C069-16YC6RUKNE15K}"
 SNS_TOPIC_ARN="${SNS_TOPIC_ARN:-arn:aws:sns:ap-southeast-1:147826551593:isb-myisb-cleanup-failure-alarm}"
 HUB_ACCOUNT_ID="${HUB_ACCOUNT_ID:-147826551593}"
-MGMT_ACCOUNT_ID="${ORG_MGT_ACCOUNT_ID:-862099794180}"
 
 echo "=== Deploying Post-Cleanup Validator ==="
 echo "  Stack: $STACK_NAME"
@@ -54,8 +53,6 @@ Parameters:
   SnsTopicArn:
     Type: String
   HubAccountId:
-    Type: String
-  MgmtAccountId:
     Type: String
   S3Bucket:
     Type: String
@@ -120,7 +117,6 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountTable
           SNS_TOPIC_ARN: !Ref SnsTopicArn
           HUB_ACCOUNT_ID: !Ref HubAccountId
-          MGMT_ACCOUNT_ID: !Ref MgmtAccountId
 
   DailySchedule:
     Type: AWS::Events::Rule
@@ -158,7 +154,6 @@ aws cloudformation deploy \
     AccountTable="$ACCOUNT_TABLE" \
     SnsTopicArn="$SNS_TOPIC_ARN" \
     HubAccountId="$HUB_ACCOUNT_ID" \
-    MgmtAccountId="$MGMT_ACCOUNT_ID" \
     S3Bucket="$BUCKET" \
     S3Key="cleanup-validator/lambda.zip" \
   --capabilities CAPABILITY_NAMED_IAM \
